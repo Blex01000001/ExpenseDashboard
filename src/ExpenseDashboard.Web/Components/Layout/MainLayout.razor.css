@@ -27,9 +27,15 @@
     background: var(--surface-1);
 }
 
-    .top-nav ::deep a.active {
-        font-weight: bold;
+    .top-nav ::deep a {
+        color: var(--text-secondary);
+        text-decoration: none;
     }
+
+        .top-nav ::deep a.active {
+            color: var(--text-primary);
+            font-weight: bold;
+        }
 
 main {
     padding: 1rem;

@@ -12,7 +12,7 @@
                 <tr>
                     <td>@item.Name</td>
                     <td>@item.Amount.ToString("#,0.##")</td>
-                    <td>@item.Share.ToString("P1")</td>
+                    <td>@($"{item.Share * 100:0.0}%")</td>
                 </tr>
             }
         </tbody>

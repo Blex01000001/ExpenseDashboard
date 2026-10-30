@@ -73,14 +73,26 @@ dotnet ef migrations add <Name> -p src/ExpenseDashboard.Web -o Data/Migrations
 
 ## 儀表板
 
-- `Domain/Reports/DashboardCalculator`：純函式彙總——期間摘要、每月收支（區間內每月都有一筆，空月補 0）、依大類別支出（超過 8 項併入「其他」、空大類別記為「未分類」）、支出前 10 名類別。占比分母一律是全部支出。
-- `Web/Dashboard/DashboardService`：依 `DashboardFilter(Year, Currency)` 從資料庫撈資料再交給計算器。指定年份時月份固定 1–12 月；全部期間則從最早到最晚有資料的月份。**不同貨幣不混算**，貨幣選單只在資料有多種貨幣時出現。
-- `Home.razor`：篩選列 → 摘要卡片 → 每月收支長條圖 → 依大類別／前 10 名橫條圖，每張圖下方都有「以表格檢視」。
+使用者的資料**只有支出、不會有收入**。儀表板只看支出；解析器仍接受「收」，但收入紀錄在所有彙總中都會被忽略。
+
+- `Domain/Reports/DashboardCalculator`（純函式）：
+  - `AnalyzeMonths(transactions, year, today)`：逐月分析，範圍是該年**第一個到最後一個有支出的月份**（中間空月補 0，不顯示尚未匯入的未來月份）。每月有總額、筆數、日均、較上月比例（上月 0 → `null`）、前 3 大類別＋「其他」占比、最大單筆。進行中的月份（`today` 所在月）日均只除到今天。
+  - `SummarizeYear`：由月份結果彙總年度總額、筆數、月平均（除以統計月份數）、最高月份。
+  - `ExpenseByMajorCategory`（超過 8 項併入「其他」、空大類別記為「未分類」）、`TopExpenseCategories`（前 10 名）。占比分母一律是該期間全部支出。
+- `Web/Dashboard/DashboardService`：依 `DashboardFilter(Year, Currency)` 撈資料，**多撈前一年 12 月**讓 1 月能算較上月；`today` 取自注入的 `TimeProvider`（測試用 `FixedTimeProvider`）。**不同貨幣不混算**，貨幣選單只在資料有多種貨幣時出現。
+- 版面（`Home.razor`）：年度選單 → 年度花費卡（最上面）→ 每月花費卡片（`MonthCard.razor`，一個月一張，新到舊）→ 每月花費長條圖 → 年度依大類別／前 10 名橫條圖（下方有「以表格檢視」）。
 - Blazor-ApexCharts 注意事項：
   - **每張圖要有自己的 `ApexChartOptions` 實例**，共用會讓其中一張畫不出來。
   - Interactive Server 下 `FormatYAxisLabel` 等 C# 委派不支援，格式化改用 options 裡的 JS 字串（`Formatter = "function (value) { ... }"`）。
   - 篩選條件改變時用 `@key` 讓圖表重建，而不是手動呼叫 `UpdateSeriesAsync`。
-- 配色：沿用 dataviz 參考色盤，分類色依固定順序指派（收入 = `#2a78d6`、支出 = `#eb6834`），顏色跟著實體走、不隨排名變。色彩與表面色的 CSS token 在 `wwwroot/app.css` 的 `:root`。目前只有淺色主題。
+  - 暗色：`Theme.Mode = Mode.Dark`、`Chart.Background = "transparent"`，色值與 CSS token 保持一致。
+- 百分比不要用 `"P0"` 格式（伺服器文化會在數字和 % 之間插空白），用 `$"{ratio * 100:0}%"`。
+
+## 主題與配色
+
+- **只有暗色主題**。色彩 token 在 `wwwroot/app.css` 的 `:root`，取自 dataviz 參考色盤暗色版本：頁面 `#0d0d0d`、卡片／圖表表面 `#1a1a19`、主要文字 `#f0efec`、次要 `#c3c2b7`、muted `#898781`、格線 `#2c2c2a`。
+- 支出單一系列色 `#d95926`（參考色盤 slot 2 橘的暗色階，已對 `#1a1a19` 驗證）。單一系列不放圖例，標題就說明是什麼。
+- 文字一律用文字 token，不用系列色上色；較上月的增減用 ▲▼ 與文字表示，不用紅綠狀態色。
 
 ## 開發慣例
 

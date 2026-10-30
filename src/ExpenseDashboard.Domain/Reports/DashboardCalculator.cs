@@ -2,75 +2,106 @@ using ExpenseDashboard.Domain.Transactions;
 
 namespace ExpenseDashboard.Domain.Reports;
 
-public sealed record PeriodSummary(decimal Income, decimal Expense, int Count)
-{
-    public decimal Net => Income - Expense;
-}
-
-public sealed record MonthlyTotal(int Year, int Month, decimal Income, decimal Expense)
-{
-    public string Label => $"{Year}/{Month:00}";
-    public decimal Net => Income - Expense;
-}
-
-/// <summary>某分類的支出合計；<see cref="Share"/> 為占總支出比例（0–1）。</summary>
+/// <summary>某分類的支出合計；<see cref="Share"/> 為占該期間總支出比例（0–1）。</summary>
 public sealed record CategoryTotal(string Name, decimal Amount, decimal Share);
 
+/// <summary>單筆最大支出的摘要。</summary>
+public sealed record LargestExpense(DateOnly Date, string Category, decimal Amount);
+
+/// <summary>年度花費摘要。<see cref="MonthCount"/> 為有分析的月份數（第一個到最後一個有資料的月份）。</summary>
+public sealed record YearSummary(
+    int Year,
+    decimal Total,
+    int Count,
+    int MonthCount,
+    decimal MonthlyAverage,
+    MonthAnalysis? PeakMonth);
+
 /// <summary>
-/// 儀表板的彙總計算。呼叫端負責先篩好期間與貨幣，這裡不混算不同貨幣。
+/// 單月花費分析。<see cref="ChangeRatio"/> 為相對上月的增減比例（0.1 = 多 10%），
+/// 上月沒有支出時為 null。
+/// </summary>
+public sealed record MonthAnalysis(
+    int Year,
+    int Month,
+    decimal Total,
+    int Count,
+    decimal DailyAverage,
+    decimal? ChangeRatio,
+    IReadOnlyList<CategoryTotal> MajorCategories,
+    LargestExpense? Largest)
+{
+    public string Label => $"{Year}/{Month:00}";
+}
+
+/// <summary>
+/// 儀表板的彙總計算，只看支出（收支區分為「收」的紀錄一律忽略）。
+/// 呼叫端負責先篩好貨幣，這裡不混算不同貨幣。
 /// </summary>
 public static class DashboardCalculator
 {
     public const string UncategorizedName = "未分類";
     public const string OtherName = "其他";
 
-    public static PeriodSummary Summarize(IEnumerable<Transaction> transactions)
-    {
-        decimal income = 0, expense = 0;
-        var count = 0;
-        foreach (var t in transactions)
-        {
-            if (t.Type == TransactionType.Income)
-            {
-                income += t.Amount;
-            }
-            else
-            {
-                expense += t.Amount;
-            }
-            count++;
-        }
-        return new PeriodSummary(income, expense, count);
-    }
+    /// <summary>每張月卡片顯示的大類別數量（含「其他」）。</summary>
+    public const int MonthCategoryCount = 4;
 
     /// <summary>
-    /// 依月份彙總收支，<paramref name="from"/> 到 <paramref name="to"/> 之間每個月都有一筆（沒資料的月份為 0），
-    /// 區間外的交易忽略。
+    /// 逐月分析 <paramref name="year"/> 年的支出，範圍是該年第一個到最後一個有支出的月份，
+    /// 中間沒有支出的月份也會出現（金額為 0）。月份由舊到新。
+    /// <paramref name="transactions"/> 可包含前一年 12 月的資料，用來計算 1 月的「較上月」。
     /// </summary>
-    public static IReadOnlyList<MonthlyTotal> MonthlyTotals(IEnumerable<Transaction> transactions, DateOnly from, DateOnly to)
+    /// <param name="today">用來判斷進行中的月份：當月的日均只除到今天為止的天數。</param>
+    public static IReadOnlyList<MonthAnalysis> AnalyzeMonths(IEnumerable<Transaction> transactions, int year, DateOnly today)
     {
-        var first = new DateOnly(from.Year, from.Month, 1);
-        var last = new DateOnly(to.Year, to.Month, 1);
-        if (first > last)
+        var byMonth = Expenses(transactions)
+            .GroupBy(t => new DateOnly(t.Date.Year, t.Date.Month, 1))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var monthsInYear = byMonth.Keys.Where(m => m.Year == year).ToList();
+        if (monthsInYear.Count == 0)
         {
             return [];
         }
 
-        var totals = transactions
-            .Where(t => t.Date >= from && t.Date <= to)
-            .GroupBy(t => (t.Date.Year, t.Date.Month))
-            .ToDictionary(
-                g => g.Key,
-                g => (Income: g.Where(t => t.Type == TransactionType.Income).Sum(t => t.Amount),
-                      Expense: g.Where(t => t.Type == TransactionType.Expense).Sum(t => t.Amount)));
-
-        var result = new List<MonthlyTotal>();
-        for (var month = first; month <= last; month = month.AddMonths(1))
+        var result = new List<MonthAnalysis>();
+        for (var month = monthsInYear.Min(); month <= monthsInYear.Max(); month = month.AddMonths(1))
         {
-            var (income, expense) = totals.GetValueOrDefault((month.Year, month.Month));
-            result.Add(new MonthlyTotal(month.Year, month.Month, income, expense));
+            var items = byMonth.GetValueOrDefault(month) ?? [];
+            var previousTotal = byMonth.GetValueOrDefault(month.AddMonths(-1))?.Sum(t => t.Amount) ?? 0;
+            var total = items.Sum(t => t.Amount);
+
+            var largest = items
+                .OrderByDescending(t => t.Amount)
+                .ThenBy(t => t.Date)
+                .Select(t => new LargestExpense(t.Date, t.Category, t.Amount))
+                .FirstOrDefault();
+
+            result.Add(new MonthAnalysis(
+                month.Year,
+                month.Month,
+                total,
+                items.Count,
+                total / DaysCounted(month, today),
+                previousTotal == 0 ? null : (total - previousTotal) / previousTotal,
+                ExpenseByMajorCategory(items, MonthCategoryCount),
+                largest));
         }
         return result;
+    }
+
+    /// <summary>由 <see cref="AnalyzeMonths"/> 的結果彙總出年度摘要。</summary>
+    public static YearSummary SummarizeYear(int year, IReadOnlyList<MonthAnalysis> months)
+    {
+        var total = months.Sum(m => m.Total);
+        var peak = months.Where(m => m.Total > 0).MaxBy(m => m.Total);
+        return new YearSummary(
+            year,
+            total,
+            months.Sum(m => m.Count),
+            months.Count,
+            months.Count == 0 ? 0 : total / months.Count,
+            peak);
     }
 
     /// <summary>
@@ -84,13 +115,20 @@ public static class DashboardCalculator
     public static IReadOnlyList<CategoryTotal> TopExpenseCategories(IEnumerable<Transaction> transactions, int count = 10) =>
         ExpenseBy(transactions, t => string.IsNullOrEmpty(t.Category) ? UncategorizedName : t.Category, count, foldRest: false);
 
+    private static IEnumerable<Transaction> Expenses(IEnumerable<Transaction> transactions) =>
+        transactions.Where(t => t.Type == TransactionType.Expense);
+
+    private static int DaysCounted(DateOnly month, DateOnly today) =>
+        month.Year == today.Year && month.Month == today.Month
+            ? today.Day
+            : DateTime.DaysInMonth(month.Year, month.Month);
+
     private static IReadOnlyList<CategoryTotal> ExpenseBy(
         IEnumerable<Transaction> transactions, Func<Transaction, string> key, int maxItems, bool foldRest)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maxItems, 1);
 
-        var groups = transactions
-            .Where(t => t.Type == TransactionType.Expense)
+        var groups = Expenses(transactions)
             .GroupBy(key, StringComparer.Ordinal)
             .Select(g => (Name: g.Key, Amount: g.Sum(t => t.Amount)))
             .Where(g => g.Amount > 0)

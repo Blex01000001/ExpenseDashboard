@@ -1,0 +1,75 @@
+@using ExpenseDashboard.Domain.Reports
+
+<article class="card month-card" aria-label="@Month.Year 年 @Month.Month 月花費">
+    <header class="month-card-header">
+        <span class="card-label">
+            @Month.Year/@Month.Month.ToString("00")
+            @if (InProgress)
+            {
+                <span class="badge">進行中</span>
+            }
+        </span>
+        <span class="month-total">@FormatAmount(Month.Total)</span>
+        <span class="month-change">@ChangeText</span>
+    </header>
+
+    <dl class="stat-list compact">
+        <div>
+            <dt>日均</dt>
+            <dd>@FormatAmount(Month.DailyAverage)</dd>
+        </div>
+        <div>
+            <dt>筆數</dt>
+            <dd>@Month.Count.ToString("N0")</dd>
+        </div>
+    </dl>
+
+    @if (Month.MajorCategories.Count > 0)
+    {
+        <ul class="share-list" aria-label="大類別分布">
+            @foreach (var category in Month.MajorCategories)
+            {
+                <li>
+                    <span class="share-name">@category.Name</span>
+                    <span class="share-track" aria-hidden="true">
+                        <span class="share-fill" style="width: @ShareWidth(category.Share)"></span>
+                    </span>
+                    <span class="share-value">@Percent(category.Share)</span>
+                </li>
+            }
+        </ul>
+    }
+    else
+    {
+        <p class="muted">這個月沒有支出。</p>
+    }
+
+    @if (Month.Largest is { } largest)
+    {
+        <p class="month-largest">
+            最大筆：@largest.Category @FormatAmount(largest.Amount)（@largest.Date.Month/@largest.Date.Day）
+        </p>
+    }
+</article>
+
+@code {
+    [Parameter, EditorRequired] public MonthAnalysis Month { get; set; } = default!;
+    [Parameter, EditorRequired] public string Currency { get; set; } = string.Empty;
+    [Parameter] public bool InProgress { get; set; }
+
+    private string ChangeText => Month.ChangeRatio switch
+    {
+        null => "較上月：—",
+        > 0 and var r => $"較上月 ▲ {Percent(r)}",
+        < 0 and var r => $"較上月 ▼ {Percent(-r)}",
+        _ => "較上月持平",
+    };
+
+    // 不用 "P0"：伺服器文化設定會在數字和 % 之間插空白。
+    private static string Percent(decimal ratio) => $"{ratio * 100:0}%";
+
+    private string FormatAmount(decimal amount) => $"{amount:#,0} {Currency}";
+
+    private static string ShareWidth(decimal share) =>
+        $"{Math.Round(share * 100, 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}%";
+}

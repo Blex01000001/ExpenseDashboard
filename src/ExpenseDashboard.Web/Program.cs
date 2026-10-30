@@ -17,6 +17,7 @@ builder.Services.AddDbContextFactory<ExpenseDbContext>(options =>
 
 builder.Services.AddScoped<TransactionImporter>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddApexCharts();
 
