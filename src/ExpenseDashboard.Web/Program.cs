@@ -1,5 +1,6 @@
 using ApexCharts;
 using ExpenseDashboard.Web.Components;
+using ExpenseDashboard.Web.Dashboard;
 using ExpenseDashboard.Web.Data;
 using ExpenseDashboard.Web.Import;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,7 @@ builder.Services.AddDbContextFactory<ExpenseDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("Expenses")));
 
 builder.Services.AddScoped<TransactionImporter>();
+builder.Services.AddScoped<DashboardService>();
 
 builder.Services.AddApexCharts();
 

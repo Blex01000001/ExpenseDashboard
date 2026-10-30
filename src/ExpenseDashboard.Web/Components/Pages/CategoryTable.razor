@@ -1,0 +1,25 @@
+@using ExpenseDashboard.Domain.Reports
+
+<details>
+    <summary>以表格檢視</summary>
+    <table class="data-table">
+        <thead>
+            <tr><th>@NameHeader</th><th>金額</th><th>占比</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Items)
+            {
+                <tr>
+                    <td>@item.Name</td>
+                    <td>@item.Amount.ToString("#,0.##")</td>
+                    <td>@item.Share.ToString("P1")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</details>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<CategoryTotal> Items { get; set; } = [];
+    [Parameter, EditorRequired] public string NameHeader { get; set; } = string.Empty;
+}
