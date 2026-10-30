@@ -10,4 +10,4 @@ dotnet run --project src/ExpenseDashboard.Web
 dotnet test
 ```
 
-開發說明請見 [CLAUDE.md](CLAUDE.md)。
+開發說明請見 [CLAUDE.md](CLAUDE.md)，目前進度與待辦請見 [PROGRESS.md](PROGRESS.md)。
