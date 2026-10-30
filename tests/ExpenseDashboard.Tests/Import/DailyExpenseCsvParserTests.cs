@@ -11,9 +11,9 @@ public class DailyExpenseCsvParserTests
 
     private static CsvParseResult Parse(string csv) => DailyExpenseCsvParser.Parse(new StringReader(csv));
 
-    private static CsvParseResult ParseSampleExport()
+    private static CsvParseResult ParseSampleExport(string fileName = "sample-export.csv")
     {
-        var path = Path.Combine(AppContext.BaseDirectory, "TestData", "sample-export.csv");
+        var path = Path.Combine(AppContext.BaseDirectory, "TestData", fileName);
         using var reader = new StreamReader(path, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         return DailyExpenseCsvParser.Parse(reader);
     }
@@ -53,6 +53,41 @@ public class DailyExpenseCsvParserTests
         Assert.Equal(TransactionType.Income, transactions.Single(t => t.Category == "薪水").Type);
         Assert.Null(transactions.Single(t => t.Category == "運動").MajorCategory);
         Assert.Equal("他說\"好書\"", transactions.Single(t => t.Category == "書籍").Note);
+    }
+
+    [Fact]
+    public void Newer_export_with_currency_alias_and_tags_column_parses()
+    {
+        var result = ParseSampleExport("sample-export-v2.csv");
+
+        Assert.Empty(result.Errors);
+        Assert.Equal(3, result.Transactions.Count);
+        Assert.All(result.Transactions, t => Assert.Equal("TWD", t.Currency));
+
+        var game = result.Transactions.Single(t => t.Category == "遊戲");
+        Assert.Equal("休閒", game.Tags);
+        Assert.Equal("Steam, 特價", game.Note);
+        Assert.Null(game.MajorCategory);
+        Assert.Equal(300m, game.Amount);
+
+        Assert.Equal("工作, 外出", result.Transactions.Single(t => t.Category == "咖啡").Tags);
+        Assert.Null(result.Transactions.Single(t => t.Category == "晚餐").Tags);
+    }
+
+    [Fact]
+    public void Export_without_tags_column_leaves_tags_null()
+    {
+        Assert.All(ParseSampleExport().Transactions, t => Assert.Null(t.Tags));
+    }
+
+    [Fact]
+    public void Missing_currency_is_reported_by_its_canonical_name()
+    {
+        var csv = "日期,類別,大類別,金額,成員,帳戶,備註,收支區分,上次更新,UUID\n";
+
+        var error = Assert.Single(Parse(csv).Errors);
+
+        Assert.Contains("貨幣", error.Message);
     }
 
     [Fact]

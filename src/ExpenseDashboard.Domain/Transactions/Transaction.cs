@@ -34,6 +34,9 @@ public class Transaction
     /// <summary>CSV「備註」欄。</summary>
     public string? Note { get; set; }
 
+    /// <summary>CSV「標籤」欄（較新版本的匯出才有）。</summary>
+    public string? Tags { get; set; }
+
     /// <summary>CSV「收支區分」欄。</summary>
     public TransactionType Type { get; set; }
 

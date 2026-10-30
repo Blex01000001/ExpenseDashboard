@@ -38,12 +38,23 @@ dotnet ef migrations add <Name> -p src/ExpenseDashboard.Web -o Data/Migrations
 
 ## 「天天記帳」CSV 格式
 
-範例（虛構資料，格式與真實匯出相同）：`tests/ExpenseDashboard.Tests/TestData/sample-export.csv`。**不要把真實匯出檔 commit 進 repo。**
+App 不同版本的匯出格式不同，兩種都要支援（範例皆為虛構資料，**不要把真實匯出檔 commit 進 repo**）：
+
+- 舊版：`TestData/sample-export.csv`
 
 ```
 日期,類別,大類別,金額,貨幣,成員,帳戶,備註,收支區分,上次更新,UUID
 20250104,午餐,Diet ,120,TWD,自己,現金,"便當, 加蛋",支,2025-01-04 12:30:15,1A2B3C4D-5E6F-4071-8293-A4B5C6D7E8F9
 ```
+
+- 新版：`TestData/sample-export-v2.csv`——「貨幣」改名「幣別」，並多了「標籤」欄
+
+```
+日期,類別,大類別,金額,幣別,成員,帳戶,標籤,備註,收支區分,上次更新,UUID
+20250210,遊戲,,300,TWD,自己,現金,休閒,"Steam, 特價",支,2025-02-10 21:05:11,5E6F7081-92A3-44B5-C6D7-E8F901122334
+```
+
+欄名別名寫在 `DailyExpenseCsvParser.ColumnAliases`（別名 → 正式名稱）；遇到新的改名就加在那裡，錯誤訊息一律用正式名稱。
 
 | 欄位 | 對應屬性 | 注意事項 |
 |---|---|---|
@@ -51,9 +62,10 @@ dotnet ef migrations add <Name> -p src/ExpenseDashboard.Web -o Data/Migrations
 | 類別 | `Category` | 小分類，例如「晚餐」「C#」 |
 | 大類別 | `MajorCategory` | **可能帶尾端空白**（`Diet `），**可能為空**；要 Trim，空字串存 `null` |
 | 金額 | `Amount` (`decimal`) | 一律正數，方向看「收支區分」 |
-| 貨幣 | `Currency` | ISO 代碼，目前都是 TWD |
+| 貨幣（新版：幣別） | `Currency` | ISO 代碼，目前都是 TWD |
 | 成員／帳戶 | `Member` / `Account` | |
 | 備註 | `Note` | 自由文字，可能含逗號或引號，必須用符合 RFC 4180 的方式解析，不要直接 `Split(',')` |
+| 標籤（選填，新版才有） | `Tags` | 原樣保存（可能含逗號），空字串存 `null`；舊版匯出沒有這欄 |
 | 收支區分 | `Type` | `支` → `Expense`，`收` → `Income` |
 | 上次更新 | `UpdatedAt` (`DateTime`) | `yyyy-MM-dd HH:mm:ss`，本地時間（不做時區轉換） |
 | UUID | `ExternalId` (`Guid`) | 唯一索引；重複匯入時用它 upsert／去重 |

@@ -25,6 +25,15 @@ public static class DailyExpenseCsvParser
     private const string UpdatedAtColumn = "上次更新";
     private const string UuidColumn = "UUID";
 
+    // 選填：較新版本的匯出才有。
+    private const string TagsColumn = "標籤";
+
+    // 不同版本的「天天記帳」匯出用了不同欄名，統一對應到上面的名稱。
+    private static readonly Dictionary<string, string> ColumnAliases = new(StringComparer.Ordinal)
+    {
+        ["幣別"] = CurrencyColumn,
+    };
+
     private static readonly string[] RequiredColumns =
     [
         DateColumn, CategoryColumn, MajorCategoryColumn, AmountColumn, CurrencyColumn, MemberColumn,
@@ -63,7 +72,9 @@ public static class DailyExpenseCsvParser
             }
 
             var rowErrors = new List<string>();
-            var transaction = ParseRow(name => record.Fields[columns[name]], rowErrors);
+            var transaction = ParseRow(
+                name => columns.TryGetValue(name, out var index) ? record.Fields[index] : string.Empty,
+                rowErrors);
             if (rowErrors.Count > 0)
             {
                 errors.Add(new CsvImportError(record.LineNumber, string.Join(" ", rowErrors)));
@@ -83,8 +94,8 @@ public static class DailyExpenseCsvParser
         for (var i = 0; i < headerFields.Count; i++)
         {
             // 若呼叫端沒有用 StreamReader 去掉 BOM，第一個標題會以 U+FEFF 開頭。
-            var name = headerFields[i].Trim().TrimStart('﻿');
-            columns.TryAdd(name, i);
+            var name = headerFields[i].Trim().TrimStart('\uFEFF');
+            columns.TryAdd(ColumnAliases.GetValueOrDefault(name, name), i);
         }
         return columns;
     }
@@ -99,6 +110,7 @@ public static class DailyExpenseCsvParser
             Member = field(MemberColumn).Trim(),
             Account = field(AccountColumn).Trim(),
             Note = NullIfEmpty(field(NoteColumn)),
+            Tags = NullIfEmpty(field(TagsColumn)),
         };
 
         var date = field(DateColumn).Trim();

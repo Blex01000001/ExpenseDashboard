@@ -72,6 +72,7 @@ public class TransactionImporter(IDbContextFactory<ExpenseDbContext> dbFactory)
         target.Member = source.Member;
         target.Account = source.Account;
         target.Note = source.Note;
+        target.Tags = source.Tags;
         target.Type = source.Type;
         target.UpdatedAt = source.UpdatedAt;
     }

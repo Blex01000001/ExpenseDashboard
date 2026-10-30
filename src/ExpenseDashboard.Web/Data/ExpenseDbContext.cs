@@ -19,6 +19,7 @@ public class ExpenseDbContext(DbContextOptions<ExpenseDbContext> options) : DbCo
             entity.Property(t => t.Currency).HasMaxLength(3);
             entity.Property(t => t.Member).HasMaxLength(100);
             entity.Property(t => t.Account).HasMaxLength(100);
+            entity.Property(t => t.Tags).HasMaxLength(200);
             entity.Property(t => t.Type).HasConversion<string>().HasMaxLength(10);
         });
     }

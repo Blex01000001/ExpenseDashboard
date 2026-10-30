@@ -48,6 +48,7 @@ public class TransactionImporterTests
         var newer = NewTransaction(externalId, amount: 250m, updatedAt: BaseTime.AddMinutes(5));
         newer.Category = "晚餐";
         newer.Note = "改過";
+        newer.Tags = "新標籤";
         var summary = await importer.ImportAsync([newer]);
 
         Assert.Equal(new ImportSummary(Added: 0, Updated: 1, Unchanged: 0), summary);
@@ -56,6 +57,7 @@ public class TransactionImporterTests
         Assert.Equal(250m, saved.Amount);
         Assert.Equal("晚餐", saved.Category);
         Assert.Equal("改過", saved.Note);
+        Assert.Equal("新標籤", saved.Tags);
         Assert.Equal(BaseTime.AddMinutes(5), saved.UpdatedAt);
     }
 
