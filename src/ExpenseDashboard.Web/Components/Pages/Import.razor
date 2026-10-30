@@ -1,0 +1,102 @@
+@page "/import"
+@using System.Text
+@using ExpenseDashboard.Domain.Import
+@using ExpenseDashboard.Web.Import
+@inject TransactionImporter Importer
+@inject ILogger<Import> Logger
+
+<PageTitle>匯入 CSV</PageTitle>
+
+<h1>匯入 CSV</h1>
+
+<p>選擇「天天記帳」匯出的 CSV 檔。重複匯入同一份檔案不會產生重複資料。</p>
+
+<InputFile OnChange="OnFileSelected" accept=".csv,text/csv" disabled="@isImporting" />
+
+@if (isImporting)
+{
+    <p>匯入中…</p>
+}
+
+@if (failure is not null)
+{
+    <p class="import-failure">@failure</p>
+}
+
+@if (summary is not null)
+{
+    <p class="import-summary">
+        @fileName：新增 @summary.Added 筆、更新 @summary.Updated 筆、未變更 @summary.Unchanged 筆。
+    </p>
+}
+
+@if (errors.Count > 0)
+{
+    <p class="import-failure">
+        @(summary is null ? "無法匯入：" : $"以下 {errors.Count} 列無法匯入，已略過：")
+    </p>
+    <ul>
+        @foreach (var error in errors)
+        {
+            <li>第 @error.LineNumber 行：@error.Message</li>
+        }
+    </ul>
+}
+
+@code {
+    private const long MaxFileSize = 20 * 1024 * 1024;
+
+    private bool isImporting;
+    private string? fileName;
+    private string? failure;
+    private ImportSummary? summary;
+    private IReadOnlyList<CsvImportError> errors = [];
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        isImporting = true;
+        fileName = e.File.Name;
+        failure = null;
+        summary = null;
+        errors = [];
+
+        try
+        {
+            if (e.File.Size > MaxFileSize)
+            {
+                failure = $"檔案太大（上限 {MaxFileSize / 1024 / 1024} MB）。";
+                return;
+            }
+
+            // Blazor Server 的檔案串流只能非同步讀取，先整份複製到記憶體再解析。
+            using var buffer = new MemoryStream();
+            await using (var upload = e.File.OpenReadStream(MaxFileSize))
+            {
+                await upload.CopyToAsync(buffer);
+            }
+            buffer.Position = 0;
+
+            using var reader = new StreamReader(buffer, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+            var result = DailyExpenseCsvParser.Parse(reader);
+            errors = result.Errors;
+
+            if (result.Transactions.Count > 0)
+            {
+                summary = await Importer.ImportAsync(result.Transactions);
+            }
+            else if (errors.Count == 0)
+            {
+                failure = "檔案中沒有任何資料列。";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to import {FileName}", fileName);
+            failure = "匯入失敗，請確認檔案是「天天記帳」匯出的 CSV。";
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+}

@@ -1,4 +1,4 @@
-﻿@page "/"
+@page "/"
 @inject IDbContextFactory<ExpenseDbContext> DbFactory
 
 <PageTitle>記帳儀表板</PageTitle>
@@ -11,7 +11,7 @@
 }
 else if (transactionCount == 0)
 {
-    <p>尚無資料，請先匯入「天天記帳」CSV。</p>
+    <p>尚無資料，請先<a href="import">匯入「天天記帳」CSV</a>。</p>
 }
 else
 {

@@ -1,6 +1,7 @@
 using ApexCharts;
 using ExpenseDashboard.Web.Components;
 using ExpenseDashboard.Web.Data;
+using ExpenseDashboard.Web.Import;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -12,6 +13,8 @@ builder.Services.AddRazorComponents()
 // Blazor Server 的 circuit 生命週期很長，用 factory 讓每個操作各自建立短命的 DbContext。
 builder.Services.AddDbContextFactory<ExpenseDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("Expenses")));
+
+builder.Services.AddScoped<TransactionImporter>();
 
 builder.Services.AddApexCharts();
 

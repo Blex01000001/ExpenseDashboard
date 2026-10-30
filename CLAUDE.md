@@ -61,6 +61,16 @@ dotnet ef migrations add <Name> -p src/ExpenseDashboard.Web -o Data/Migrations
 - 檔案是 **UTF-8 with BOM**，第一列為標題，列依新到舊排序。
 - 解析時日期、數字一律用 `CultureInfo.InvariantCulture`。
 
+## CSV 匯入流程
+
+1. `Import.razor`（`/import`）用 `InputFile` 讀檔（上限 20 MB），先複製到 `MemoryStream`，再以 `StreamReader`（自動去 BOM）交給解析器。
+2. `Domain/Import/DailyExpenseCsvParser.Parse(TextReader)`：依**標題名稱**對應欄位（順序無關），底層用 `CsvReader`（RFC 4180）。格式錯誤的列會略過，並以 `CsvImportError(行號, 訊息)` 回報；標題缺欄位則整份不解析。行號是該列在檔案中的起始行（多行備註會被計入）。
+3. `Web/Import/TransactionImporter.ImportAsync`：以 UUID upsert，回傳 `ImportSummary(Added, Updated, Unchanged)`。
+   - 新 UUID → 新增；既有且「上次更新」較新 → 覆寫；否則不變。
+   - 同一檔內重複 UUID 取「上次更新」最新的那筆。
+   - 匯出檔中沒出現的既有資料**不刪除**（App 端刪除的紀錄不會同步）。
+   - 既有資料以每批 500 個 UUID 查詢，避免 SQLite 參數上限。
+
 ## 開發慣例
 
 - 在元件裡用 `IDbContextFactory<ExpenseDbContext>` 並以 `await using` 建立短命 context，**不要**直接注入 `ExpenseDbContext`（Blazor Server circuit 生命週期很長，DbContext 不是執行緒安全的）。

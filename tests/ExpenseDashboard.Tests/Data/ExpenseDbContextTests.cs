@@ -9,7 +9,7 @@ public class ExpenseDbContextTests
     public void Migrations_cover_the_current_model()
     {
         using var database = new SqliteTestDatabase();
-        using var db = database.CreateContext();
+        using var db = database.CreateDbContext();
 
         Assert.False(db.Database.HasPendingModelChanges());
     }
@@ -20,13 +20,13 @@ public class ExpenseDbContextTests
         using var database = new SqliteTestDatabase();
         var transaction = NewTransaction(amount: 550m);
 
-        await using (var db = database.CreateContext())
+        await using (var db = database.CreateDbContext())
         {
             db.Transactions.Add(transaction);
             await db.SaveChangesAsync();
         }
 
-        await using (var db = database.CreateContext())
+        await using (var db = database.CreateDbContext())
         {
             var saved = await db.Transactions.SingleAsync();
             Assert.Equal(transaction.ExternalId, saved.ExternalId);
@@ -43,7 +43,7 @@ public class ExpenseDbContextTests
         using var database = new SqliteTestDatabase();
         var externalId = Guid.NewGuid();
 
-        await using var db = database.CreateContext();
+        await using var db = database.CreateDbContext();
         db.Transactions.Add(NewTransaction(externalId: externalId));
         db.Transactions.Add(NewTransaction(externalId: externalId));
 
@@ -55,7 +55,7 @@ public class ExpenseDbContextTests
     {
         using var database = new SqliteTestDatabase();
 
-        await using var db = database.CreateContext();
+        await using var db = database.CreateDbContext();
         db.Transactions.AddRange(NewTransaction(amount: 25m), NewTransaction(amount: 30.5m));
         await db.SaveChangesAsync();
 

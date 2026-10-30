@@ -1,6 +1,13 @@
 ﻿@inherits LayoutComponentBase
 
-@Body
+<nav class="top-nav">
+    <NavLink href="" Match="NavLinkMatch.All">儀表板</NavLink>
+    <NavLink href="import">匯入 CSV</NavLink>
+</nav>
+
+<main>
+    @Body
+</main>
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
