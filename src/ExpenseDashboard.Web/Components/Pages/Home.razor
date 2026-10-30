@@ -1,0 +1,29 @@
+﻿@page "/"
+@inject IDbContextFactory<ExpenseDbContext> DbFactory
+
+<PageTitle>記帳儀表板</PageTitle>
+
+<h1>記帳儀表板</h1>
+
+@if (transactionCount is null)
+{
+    <p>載入中…</p>
+}
+else if (transactionCount == 0)
+{
+    <p>尚無資料，請先匯入「天天記帳」CSV。</p>
+}
+else
+{
+    <p>共 @transactionCount 筆紀錄。</p>
+}
+
+@code {
+    private int? transactionCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        transactionCount = await db.Transactions.CountAsync();
+    }
+}
