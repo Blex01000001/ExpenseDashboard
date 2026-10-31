@@ -1,0 +1,23 @@
+@* 增減比例：花得比較多 ▲ 紅、比較少 ▼ 綠；三角形與百分比一起上色，標籤文字維持文字色。 *@
+@switch (Ratio)
+{
+    case null:
+        <span class="change-none" title="比較基準沒有支出">—</span>
+        break;
+    case > 0:
+        <span class="change-up">▲ @Percent(Ratio.Value)</span>
+        break;
+    case < 0:
+        <span class="change-down">▼ @Percent(-Ratio.Value)</span>
+        break;
+    default:
+        <span class="change-none">持平</span>
+        break;
+}
+
+@code {
+    [Parameter, EditorRequired] public decimal? Ratio { get; set; }
+
+    // 不用 "P0"：伺服器文化設定會在數字和 % 之間插空白。
+    private static string Percent(decimal ratio) => $"{ratio * 100:0}%";
+}

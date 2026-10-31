@@ -9,11 +9,13 @@ public sealed record DashboardFilter(int Year, string Currency);
 
 public sealed record DashboardOptions(IReadOnlyList<int> Years, IReadOnlyList<string> Currencies);
 
+/// <param name="FeaturedMajorCategories">圓餅圖固定配色的大類別（年度前幾名，依序），每張月卡片共用。</param>
 public sealed record DashboardData(
     YearSummary Year,
     IReadOnlyList<MonthAnalysis> Months,
-    IReadOnlyList<CategoryTotal> ByMajorCategory,
-    IReadOnlyList<CategoryTotal> TopCategories);
+    IReadOnlyList<MonthValue> MonthlyTotals,
+    IReadOnlyList<TrendItem> TrendItems,
+    IReadOnlyList<string> FeaturedMajorCategories);
 
 /// <summary>從資料庫取出指定年份與貨幣的支出，交給 <see cref="DashboardCalculator"/> 彙總。</summary>
 public class DashboardService(IDbContextFactory<ExpenseDbContext> dbFactory, TimeProvider timeProvider)
@@ -46,8 +48,8 @@ public class DashboardService(IDbContextFactory<ExpenseDbContext> dbFactory, Tim
     {
         await using var db = await dbFactory.CreateDbContextAsync(cancellationToken);
 
-        // 多撈前一年 12 月，讓 1 月也能算「較上月」。
-        var from = new DateOnly(filter.Year - 1, 12, 1);
+        // 多撈前一整年：1 月的「較上月」與每月的「較去年同月」都需要。
+        var from = new DateOnly(filter.Year - 1, 1, 1);
         var to = new DateOnly(filter.Year, 12, 31);
         var transactions = await db.Transactions
             .AsNoTracking()
@@ -59,12 +61,17 @@ public class DashboardService(IDbContextFactory<ExpenseDbContext> dbFactory, Tim
 
         var today = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
         var months = DashboardCalculator.AnalyzeMonths(transactions, filter.Year, today);
-        var inYear = transactions.Where(t => t.Date.Year == filter.Year).ToList();
+        var trendItems = DashboardCalculator.TrendItems(transactions, filter.Year, today);
 
         return new DashboardData(
             DashboardCalculator.SummarizeYear(filter.Year, months),
             months,
-            DashboardCalculator.ExpenseByMajorCategory(inYear),
-            DashboardCalculator.TopExpenseCategories(inYear));
+            DashboardCalculator.MonthlyTotals(transactions, filter.Year, today),
+            trendItems,
+            trendItems
+                .Where(i => i.Kind == TrendItemKind.MajorCategory)
+                .Take(DashboardCalculator.FeaturedMajorCategoryCount)
+                .Select(i => i.Name)
+                .ToList());
     }
 }

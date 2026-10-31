@@ -11,6 +11,9 @@
     --link: #6da7ec;
     --series-expense: #d95926;
     --danger: #e66767;
+    /* 支出增減：花得比較多 = 紅、比較少 = 綠（皆對 --surface-1 有 5:1 以上對比）。 */
+    --change-up: #e66767;
+    --change-down: #0ca30c;
 }
 
 body {
@@ -39,18 +42,20 @@ select, input, button {
     color: var(--text-muted);
 }
 
-.filters {
+.page-header {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    align-items: center;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.75rem;
+    /* 與左上角懸浮按鈕的第一顆同高。 */
+    min-height: 2.5rem;
 }
 
-    .filters label {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        color: var(--text-secondary);
+    .page-header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+        line-height: 1.2;
     }
 
 .card {
@@ -108,7 +113,7 @@ select, input, button {
 
 .month-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
     gap: 1rem;
     margin-bottom: 1rem;
 }
@@ -128,11 +133,6 @@ select, input, button {
     font-weight: 600;
 }
 
-.month-change {
-    color: var(--text-secondary);
-    font-size: 0.8125rem;
-}
-
 .badge {
     margin-left: 0.25rem;
     padding: 0 0.375rem;
@@ -142,88 +142,98 @@ select, input, button {
     font-size: 0.75rem;
 }
 
-.share-list {
-    list-style: none;
-    margin: 0.75rem 0 0;
-    padding: 0;
+.month-stats {
     display: grid;
-    gap: 0.375rem;
-    font-size: 0.8125rem;
+    grid-template-columns: repeat(3, auto);
+    justify-content: start;
+    gap: 0.25rem 1.25rem;
+    margin: 0.5rem 0 0.25rem;
+    font-size: 0.875rem;
 }
 
-    .share-list li {
-        display: grid;
-        grid-template-columns: 4.5rem 1fr 2.75rem;
-        align-items: center;
-        gap: 0.5rem;
+    .month-stats div {
+        display: flex;
+        flex-direction: column;
     }
 
-.share-name {
-    color: var(--text-secondary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    .month-stats dt {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+    }
+
+    .month-stats dd {
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+    }
+
+.change-up {
+    color: var(--change-up);
 }
 
-.share-track {
-    height: 8px;
-    background: var(--surface-2);
-    border-radius: 4px;
-    overflow: hidden;
+.change-down {
+    color: var(--change-down);
 }
 
-.share-fill {
-    display: block;
-    height: 100%;
-    background: var(--series-expense);
-    border-radius: 0 4px 4px 0;
-}
-
-.share-value {
-    text-align: right;
-    color: var(--text-primary);
-    font-variant-numeric: tabular-nums;
-}
-
-.month-largest {
-    margin: 0.75rem 0 0;
+.change-none {
     color: var(--text-muted);
-    font-size: 0.8125rem;
+}
+
+.trend-picker {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.875rem;
+}
+
+.trend-picker-label {
+    color: var(--text-secondary);
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.125rem 0.25rem 0.125rem 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-2);
+}
+
+.chip-swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+}
+
+.chip-remove {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    padding: 0 0.25rem;
+    cursor: pointer;
+    line-height: 1;
+}
+
+    .chip-remove:hover {
+        color: var(--text-primary);
+    }
+
+.chart-note {
+    margin: 0;
+    font-size: 0.75rem;
+}
+
+.bar-swatch {
+    display: inline-block;
+    border-radius: 2px;
 }
 
 .chart-card h2 {
     margin: 0 0 0.5rem;
     font-size: 1rem;
 }
-
-.chart-card summary {
-    cursor: pointer;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
-
-.chart-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
-    gap: 1rem;
-}
-
-.data-table {
-    border-collapse: collapse;
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-    font-variant-numeric: tabular-nums;
-}
-
-    .data-table th, .data-table td {
-        padding: 0.25rem 0.75rem;
-        border-bottom: 1px solid var(--border);
-        text-align: right;
-    }
-
-        .data-table th:first-child, .data-table td:first-child {
-            text-align: left;
-        }
 
 h1:focus {
     outline: none;

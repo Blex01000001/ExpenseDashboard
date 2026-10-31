@@ -6,7 +6,27 @@
 
 <PageTitle>記帳儀表板</PageTitle>
 
-<h1>記帳儀表板</h1>
+<div class="page-header">
+    <h1>記帳儀表板</h1>
+    @if (options is { Years.Count: > 0 })
+    {
+        <select value="@year" @onchange="OnYearChanged" aria-label="年度">
+            @foreach (var y in options.Years)
+            {
+                <option value="@y">@y 年</option>
+            }
+        </select>
+        @if (options.Currencies.Count > 1)
+        {
+            <select value="@currency" @onchange="OnCurrencyChanged" aria-label="貨幣">
+                @foreach (var c in options.Currencies)
+                {
+                    <option value="@c">@c</option>
+                }
+            </select>
+        }
+    }
+</div>
 
 @if (options is null)
 {
@@ -16,126 +36,60 @@ else if (options.Years.Count == 0)
 {
     <p>尚無資料，請先<a href="import">匯入「天天記帳」CSV</a>。</p>
 }
-else
+else if (data is not null)
 {
-    <div class="filters">
-        <label>
-            年度
-            <select value="@year" @onchange="OnYearChanged">
-                @foreach (var y in options.Years)
-                {
-                    <option value="@y">@y 年</option>
-                }
-            </select>
-        </label>
-        @if (options.Currencies.Count > 1)
-        {
-            <label>
-                貨幣
-                <select value="@currency" @onchange="OnCurrencyChanged">
-                    @foreach (var c in options.Currencies)
-                    {
-                        <option value="@c">@c</option>
-                    }
-                </select>
-            </label>
-        }
-    </div>
-
-    @if (data is not null)
+    @if (data.Months.Count == 0)
     {
-        @if (data.Months.Count == 0)
-        {
-            <p>@year 年沒有 @currency 的支出紀錄。</p>
-        }
-        else
-        {
-            <section class="card year-card" aria-label="年度花費">
-                <span class="card-label">@data.Year.Year 年度花費</span>
-                <span class="hero-value">@FormatAmount(data.Year.Total)</span>
-                <dl class="stat-list">
-                    <div>
-                        <dt>月平均</dt>
-                        <dd>@FormatAmount(data.Year.MonthlyAverage)</dd>
-                    </div>
-                    <div>
-                        <dt>筆數</dt>
-                        <dd>@data.Year.Count.ToString("N0")</dd>
-                    </div>
-                    @if (data.Year.PeakMonth is { } peak)
-                    {
-                        <div>
-                            <dt>最高月份</dt>
-                            <dd>@peak.Month 月・@FormatAmount(peak.Total)</dd>
-                        </div>
-                    }
-                    <div>
-                        <dt>統計月份</dt>
-                        <dd>@MonthRange(data.Months)（@data.Year.MonthCount 個月）</dd>
-                    </div>
-                </dl>
-            </section>
-
-            <section class="month-grid" aria-label="每月花費分析">
-                @foreach (var month in data.Months.Reverse())
-                {
-                    <MonthCard Month="month" Currency="@currency" InProgress="IsCurrentMonth(month)" />
-                }
-            </section>
-
-            <section class="card chart-card" @key="@($"monthly-{FilterKey}")">
-                <h2>每月花費</h2>
-                <ApexChart TItem="MonthAnalysis" Options="monthlyOptions" Height="300">
-                    <ApexPointSeries TItem="MonthAnalysis" Items="data.Months" Name="支出" SeriesType="SeriesType.Bar"
-                                     XValue="@(m => $"{m.Month} 月")" YValue="@(m => m.Total)" />
-                </ApexChart>
-            </section>
-
-            @if (data.ByMajorCategory.Count > 0)
-            {
-                <div class="chart-grid">
-                    <section class="card chart-card" @key="@($"major-{FilterKey}")">
-                        <h2>年度支出：依大類別</h2>
-                        <ApexChart TItem="CategoryTotal" Options="majorCategoryOptions" Height="@CategoryChartHeight(data.ByMajorCategory)">
-                            <ApexPointSeries TItem="CategoryTotal" Items="data.ByMajorCategory" Name="支出" SeriesType="SeriesType.Bar"
-                                             XValue="@(c => c.Name)" YValue="@(c => c.Amount)" />
-                        </ApexChart>
-                        <CategoryTable Items="data.ByMajorCategory" NameHeader="大類別" />
-                    </section>
-
-                    <section class="card chart-card" @key="@($"top-{FilterKey}")">
-                        <h2>年度支出前 @data.TopCategories.Count 名類別</h2>
-                        <ApexChart TItem="CategoryTotal" Options="topCategoryOptions" Height="@CategoryChartHeight(data.TopCategories)">
-                            <ApexPointSeries TItem="CategoryTotal" Items="data.TopCategories" Name="支出" SeriesType="SeriesType.Bar"
-                                             XValue="@(c => c.Name)" YValue="@(c => c.Amount)" />
-                        </ApexChart>
-                        <CategoryTable Items="data.TopCategories" NameHeader="類別" />
-                    </section>
+        <p>@year 年沒有 @currency 的支出紀錄。</p>
+    }
+    else
+    {
+        <section class="card year-card" aria-label="年度花費">
+            <span class="card-label">@data.Year.Year 年度花費</span>
+            <span class="hero-value">@FormatAmount(data.Year.Total)</span>
+            <dl class="stat-list">
+                <div>
+                    <dt>月平均</dt>
+                    <dd>@FormatAmount(data.Year.MonthlyAverage)</dd>
                 </div>
+                <div>
+                    <dt>筆數</dt>
+                    <dd>@data.Year.Count.ToString("N0")</dd>
+                </div>
+                @if (data.Year.PeakMonth is { } peak)
+                {
+                    <div>
+                        <dt>最高月份</dt>
+                        <dd>@peak.Month 月・@FormatAmount(peak.Total)</dd>
+                    </div>
+                }
+                <div>
+                    <dt>統計月份</dt>
+                    <dd>@MonthRange(data.Months)（@data.Year.MonthCount 個月）</dd>
+                </div>
+            </dl>
+        </section>
+
+        <MonthlyTrendCard MonthlyTotals="data.MonthlyTotals"
+                          Items="data.TrendItems"
+                          DefaultItems="DashboardCalculator.DefaultTrendItems(data.TrendItems)"
+                          ChartKeyPrefix="@FilterKey" />
+
+        <section class="month-grid" aria-label="每月花費分析">
+            @foreach (var month in data.Months.Reverse())
+            {
+                <MonthCard @key="@($"{FilterKey}-{month.Label}")" Month="month" Currency="@currency"
+                           FeaturedMajorCategories="data.FeaturedMajorCategories" InProgress="IsCurrentMonth(month)" />
             }
-        }
+        </section>
     }
 }
 
 @code {
-    // 色票與 app.css 的 :root token 一致（dataviz 參考色盤，暗色版本）。
-    private const string ExpenseColor = "#d95926";
-    private const string SurfaceColor = "#1a1a19";
-    private const string GridColor = "#2c2c2a";
-    private const string MutedInk = "#898781";
-    private const string AmountFormatter = "function (value) { return Number(value).toLocaleString('zh-TW', { maximumFractionDigits: 2 }); }";
-    // 軸刻度用精簡寫法（例如 30萬），避免窄螢幕上互相重疊；tooltip 仍顯示完整金額。
-    private const string AxisFormatter = "function (value) { return Number(value).toLocaleString('zh-TW', { notation: 'compact', maximumFractionDigits: 1 }); }";
-
     private DashboardOptions? options;
     private DashboardData? data;
     private int year;
     private string currency = DashboardService.DefaultCurrency;
-
-    // 每張圖都要有自己的 options 實例：ApexChart 會把自身的 chart id 寫進 options，共用會讓其中一張不顯示。
-    private readonly ApexChartOptions<MonthAnalysis> monthlyOptions = CreateOptions<MonthAnalysis>(horizontal: false);
-    private readonly ApexChartOptions<CategoryTotal> majorCategoryOptions = CreateOptions<CategoryTotal>(horizontal: true);
-    private readonly ApexChartOptions<CategoryTotal> topCategoryOptions = CreateOptions<CategoryTotal>(horizontal: true);
 
     private string FilterKey => $"{year}-{currency}";
 
@@ -182,62 +136,4 @@ else
 
     private static string MonthRange(IReadOnlyList<MonthAnalysis> months) =>
         months.Count == 1 ? $"{months[0].Month} 月" : $"{months[0].Month}–{months[^1].Month} 月";
-
-    private static int CategoryChartHeight(IReadOnlyList<CategoryTotal> items) => 60 + 32 * Math.Max(items.Count, 3);
-
-    private static ApexChartOptions<T> CreateOptions<T>(bool horizontal) where T : class => new()
-    {
-        Chart = new Chart
-        {
-            Toolbar = new Toolbar { Show = false },
-            Zoom = new Zoom { Enabled = false },
-            FontFamily = "inherit",
-            Background = "transparent",
-            ForeColor = MutedInk,
-        },
-        Theme = new Theme { Mode = Mode.Dark },
-        Colors = [ExpenseColor],
-        DataLabels = new DataLabels { Enabled = false },
-        PlotOptions = new PlotOptions
-        {
-            Bar = new PlotOptionsBar
-            {
-                Horizontal = horizontal,
-                BorderRadius = 4,
-                BorderRadiusApplication = BorderRadiusApplication.End,
-                ColumnWidth = "60%",
-                BarHeight = "60%",
-            },
-        },
-        // 相鄰長條之間留 2px 表面色間隙。
-        Stroke = new Stroke { Show = true, Width = 2, Colors = [SurfaceColor] },
-        Grid = new Grid { BorderColor = GridColor, StrokeDashArray = 0 },
-        Legend = new Legend { Show = false },
-        Xaxis = horizontal ? new XAxis { Labels = new XAxisLabels { Formatter = AxisFormatter } } : null,
-        Yaxis = horizontal ? null : [new YAxis { Labels = new YAxisLabels { Formatter = AxisFormatter } }],
-        Tooltip = new Tooltip { Theme = Mode.Dark, Y = new TooltipY { Formatter = AmountFormatter } },
-        // 窄螢幕上長條本身只有幾 px，2px 間隙會把它吃掉，改用較寬的長條並拿掉間隙。
-        Responsive =
-        [
-            new Responsive<T>
-            {
-                Breakpoint = 640,
-                Options = new ApexChartOptions<T>
-                {
-                    Stroke = new Stroke { Show = false, Width = 0 },
-                    PlotOptions = new PlotOptions
-                    {
-                        Bar = new PlotOptionsBar
-                        {
-                            Horizontal = horizontal,
-                            BorderRadius = 2,
-                            BorderRadiusApplication = BorderRadiusApplication.End,
-                            ColumnWidth = "85%",
-                            BarHeight = "60%",
-                        },
-                    },
-                },
-            },
-        ],
-    };
 }

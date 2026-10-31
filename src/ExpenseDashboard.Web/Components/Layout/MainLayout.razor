@@ -1,8 +1,14 @@
 ﻿@inherits LayoutComponentBase
 
-<nav class="top-nav">
-    <NavLink href="" Match="NavLinkMatch.All">儀表板</NavLink>
-    <NavLink href="import">匯入 CSV</NavLink>
+<nav class="fab-nav" aria-label="主選單">
+    <NavLink class="fab" href="" Match="NavLinkMatch.All" title="儀表板">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
+        <span class="fab-label">儀表板</span>
+    </NavLink>
+    <NavLink class="fab" href="import" title="匯入 CSV">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 21h16" /></svg>
+        <span class="fab-label">匯入 CSV</span>
+    </NavLink>
 </nav>
 
 <main>

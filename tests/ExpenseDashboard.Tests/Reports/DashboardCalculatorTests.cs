@@ -105,65 +105,6 @@ public class DashboardCalculatorTests
     }
 
     [Fact]
-    public void Month_has_major_category_shares_and_largest_expense()
-    {
-        var month = Assert.Single(DashboardCalculator.AnalyzeMonths(
-            [
-                Expense(600m, new DateOnly(2025, 1, 20), category: "房租", majorCategory: "Home"),
-                Expense(300m, new DateOnly(2025, 1, 2), category: "晚餐", majorCategory: "Diet"),
-                Expense(100m, new DateOnly(2025, 1, 3), category: "早餐", majorCategory: "Diet"),
-            ],
-            2025,
-            LongAfter));
-
-        Assert.Equal(
-            [new CategoryTotal("Home", 600m, 0.6m), new CategoryTotal("Diet", 400m, 0.4m)],
-            month.MajorCategories);
-        Assert.Equal(new LargestExpense(new DateOnly(2025, 1, 20), "房租", 600m), month.Largest);
-    }
-
-    [Fact]
-    public void Largest_expense_tie_picks_the_earliest_date()
-    {
-        var month = Assert.Single(DashboardCalculator.AnalyzeMonths(
-            [
-                Expense(100m, new DateOnly(2025, 1, 20), category: "後"),
-                Expense(100m, new DateOnly(2025, 1, 5), category: "先"),
-            ],
-            2025,
-            LongAfter));
-
-        Assert.Equal("先", month.Largest!.Category);
-    }
-
-    [Fact]
-    public void Month_categories_fold_into_other_beyond_the_card_limit()
-    {
-        var transactions = Enumerable.Range(1, 6)
-            .Select(i => Expense(i * 10m, new DateOnly(2025, 1, i), majorCategory: $"C{i}"))
-            .ToList();
-
-        var month = Assert.Single(DashboardCalculator.AnalyzeMonths(transactions, 2025, LongAfter));
-
-        Assert.Equal(DashboardCalculator.MonthCategoryCount, month.MajorCategories.Count);
-        Assert.Equal(DashboardCalculator.OtherName, month.MajorCategories[^1].Name);
-        Assert.Equal(60m, month.MajorCategories[^1].Amount);
-    }
-
-    [Fact]
-    public void Empty_month_has_no_categories_or_largest_expense()
-    {
-        var months = DashboardCalculator.AnalyzeMonths(
-            [Expense(1m, new DateOnly(2025, 1, 1)), Expense(1m, new DateOnly(2025, 3, 1))],
-            2025,
-            LongAfter);
-
-        Assert.Empty(months[1].MajorCategories);
-        Assert.Null(months[1].Largest);
-        Assert.Equal(0m, months[1].DailyAverage);
-    }
-
-    [Fact]
     public void SummarizeYear_totals_months_and_finds_the_peak()
     {
         var months = DashboardCalculator.AnalyzeMonths(
@@ -195,90 +136,132 @@ public class DashboardCalculatorTests
     }
 
     [Fact]
-    public void ExpenseByMajorCategory_sorts_descending_and_computes_share()
+    public void YearOverYearRatio_compares_with_the_same_month_last_year()
     {
-        var totals = DashboardCalculator.ExpenseByMajorCategory(
-        [
-            Expense(100m, majorCategory: "Diet"),
-            Expense(50m, majorCategory: "Diet"),
-            Expense(250m, majorCategory: "Home"),
-            Expense(100m, majorCategory: null),
-            Income(9999m),
-        ]);
+        var months = DashboardCalculator.AnalyzeMonths(
+            [
+                Expense(200m, new DateOnly(2024, 1, 10)),
+                Expense(100m, new DateOnly(2024, 2, 10)),
+                Expense(300m, new DateOnly(2025, 1, 10)),
+                Expense(50m, new DateOnly(2025, 2, 10)),
+                Expense(80m, new DateOnly(2025, 3, 10)),
+            ],
+            2025,
+            LongAfter);
+
+        Assert.Equal([0.5m, -0.5m, null], months.Select(m => m.YearOverYearRatio));
+    }
+
+    [Fact]
+    public void Month_breakdown_lists_featured_major_categories_in_year_order_then_other()
+    {
+        // 年度排名：Home 600 > Diet 400 > 交通 100；本月沒有交通。
+        var months = DashboardCalculator.AnalyzeMonths(
+            [
+                Expense(600m, new DateOnly(2025, 1, 5), majorCategory: "Home"),
+                Expense(100m, new DateOnly(2025, 1, 6), majorCategory: "交通"),
+                Expense(300m, new DateOnly(2025, 2, 2), majorCategory: "Diet"),
+                Expense(100m, new DateOnly(2025, 2, 3), majorCategory: "Diet"),
+            ],
+            2025,
+            LongAfter);
+
+        Assert.Equal(["Home", "交通"], months[0].MajorCategories.Select(c => c.Name));
+        Assert.Equal([new CategoryTotal("Diet", 400m, 1m)], months[1].MajorCategories);
+    }
+
+    [Fact]
+    public void Month_breakdown_folds_non_featured_major_categories_into_other()
+    {
+        var transactions = Enumerable.Range(1, 7)
+            .Select(i => Expense(i * 10m, new DateOnly(2025, 1, i), majorCategory: $"C{i}"))
+            .Append(Expense(5m, new DateOnly(2025, 1, 9), majorCategory: null))
+            .ToList();
+
+        var month = Assert.Single(DashboardCalculator.AnalyzeMonths(transactions, 2025, LongAfter));
+
+        Assert.Equal(["C7", "C6", "C5", "C4", "C3", DashboardCalculator.OtherName], month.MajorCategories.Select(c => c.Name));
+        Assert.Equal(35m, month.MajorCategories[^1].Amount);
+        Assert.Equal(1m, month.MajorCategories.Sum(c => c.Share));
+    }
+
+    [Fact]
+    public void Empty_month_has_no_breakdown()
+    {
+        var months = DashboardCalculator.AnalyzeMonths(
+            [Expense(1m, new DateOnly(2025, 1, 1)), Expense(1m, new DateOnly(2025, 3, 1))],
+            2025,
+            LongAfter);
+
+        Assert.Empty(months[1].MajorCategories);
+        Assert.Equal(0m, months[1].DailyAverage);
+    }
+
+    [Fact]
+    public void MonthlyTotals_covers_twelve_months_with_zero_for_past_and_null_for_future()
+    {
+        var totals = DashboardCalculator.MonthlyTotals(
+            [
+                Expense(100m, new DateOnly(2025, 1, 5)),
+                Expense(50m, new DateOnly(2025, 3, 5)),
+                Expense(999m, new DateOnly(2024, 3, 5)),
+                Income(5000m, new DateOnly(2025, 1, 5)),
+            ],
+            2025,
+            today: new DateOnly(2025, 4, 15));
+
+        Assert.Equal(12, totals.Count);
+        Assert.Equal("1 月", totals[0].Label);
+        Assert.Equal([100m, 0m, 50m, 0m, null, null, null, null, null, null, null, null], totals.Select(t => t.Total));
+    }
+
+    [Fact]
+    public void MonthlyTotals_of_a_past_year_has_no_future_months()
+    {
+        var totals = DashboardCalculator.MonthlyTotals([Expense(1m, new DateOnly(2024, 6, 1))], 2024, new DateOnly(2025, 1, 1));
+
+        Assert.All(totals, t => Assert.NotNull(t.Total));
+    }
+
+    [Fact]
+    public void TrendItems_lists_major_categories_then_categories_by_year_total()
+    {
+        var items = DashboardCalculator.TrendItems(
+            [
+                Expense(100m, new DateOnly(2025, 1, 5), category: "晚餐", majorCategory: "Diet"),
+                Expense(30m, new DateOnly(2025, 2, 5), category: "早餐", majorCategory: "Diet"),
+                Expense(300m, new DateOnly(2025, 2, 6), category: "運動", majorCategory: null),
+                Expense(999m, new DateOnly(2024, 2, 6), category: "去年", majorCategory: "Old"),
+            ],
+            2025,
+            new DateOnly(2025, 3, 31));
 
         Assert.Equal(
+            ["m:" + DashboardCalculator.UncategorizedName, "m:Diet", "c:運動", "c:晚餐", "c:早餐"],
+            items.Select(i => i.Id));
+
+        var diet = items.Single(i => i.Id == "m:Diet");
+        Assert.Equal(130m, diet.YearTotal);
+        Assert.Equal([100m, 30m, 0m, null], diet.Monthly.Take(4));
+        Assert.Equal(12, diet.Monthly.Count);
+    }
+
+    [Fact]
+    public void DefaultTrendItems_are_the_top_categories_not_major_categories()
+    {
+        var items = DashboardCalculator.TrendItems(
             [
-                new CategoryTotal("Home", 250m, 0.5m),
-                new CategoryTotal("Diet", 150m, 0.3m),
-                new CategoryTotal(DashboardCalculator.UncategorizedName, 100m, 0.2m),
+                Expense(500m, category: "房租", majorCategory: "Home"),
+                Expense(300m, category: "晚餐", majorCategory: "Diet"),
+                Expense(200m, category: "午餐", majorCategory: "Diet"),
+                Expense(100m, category: "早餐", majorCategory: "Diet"),
             ],
-            totals);
-    }
+            2025,
+            LongAfter);
 
-    [Fact]
-    public void ExpenseByMajorCategory_folds_the_tail_into_other()
-    {
-        var transactions = Enumerable.Range(1, 5)
-            .Select(i => Expense(i * 10m, majorCategory: $"C{i}"))
-            .ToList();
+        var defaults = DashboardCalculator.DefaultTrendItems(items);
 
-        var totals = DashboardCalculator.ExpenseByMajorCategory(transactions, maxItems: 3);
-
-        Assert.Equal(["C5", "C4", DashboardCalculator.OtherName], totals.Select(t => t.Name));
-        Assert.Equal(60m, totals[^1].Amount);
-        Assert.Equal(1m, totals.Sum(t => t.Share));
-    }
-
-    [Fact]
-    public void ExpenseByMajorCategory_does_not_fold_when_within_limit()
-    {
-        var totals = DashboardCalculator.ExpenseByMajorCategory(
-            [Expense(10m, majorCategory: "A"), Expense(20m, majorCategory: "B")],
-            maxItems: 2);
-
-        Assert.Equal(["B", "A"], totals.Select(t => t.Name));
-    }
-
-    [Fact]
-    public void Ties_are_ordered_by_name_for_stable_output()
-    {
-        var totals = DashboardCalculator.ExpenseByMajorCategory(
-            [Expense(10m, majorCategory: "B"), Expense(10m, majorCategory: "A")]);
-
-        Assert.Equal(["A", "B"], totals.Select(t => t.Name));
-    }
-
-    [Fact]
-    public void TopExpenseCategories_keeps_only_the_top_n_without_other()
-    {
-        var transactions = Enumerable.Range(1, 12)
-            .Select(i => Expense(i, category: $"C{i:00}"))
-            .ToList();
-
-        var top = DashboardCalculator.TopExpenseCategories(transactions, count: 10);
-
-        Assert.Equal(10, top.Count);
-        Assert.Equal("C12", top[0].Name);
-        Assert.Equal("C03", top[^1].Name);
-        Assert.DoesNotContain(top, t => t.Name == DashboardCalculator.OtherName);
-        // 占比以全部支出為分母，不是只算前 N 名。
-        Assert.Equal(12m / 78m, top[0].Share);
-    }
-
-    [Fact]
-    public void Category_breakdowns_are_empty_without_expenses()
-    {
-        Transaction[] onlyIncome = [Income(100m)];
-
-        Assert.Empty(DashboardCalculator.ExpenseByMajorCategory(onlyIncome));
-        Assert.Empty(DashboardCalculator.TopExpenseCategories(onlyIncome));
-    }
-
-    [Fact]
-    public void Category_breakdowns_reject_non_positive_limits()
-    {
-        Assert.Throws<ArgumentOutOfRangeException>(() => DashboardCalculator.ExpenseByMajorCategory([], maxItems: 0));
-        Assert.Throws<ArgumentOutOfRangeException>(() => DashboardCalculator.TopExpenseCategories([], count: 0));
+        Assert.Equal(["c:房租", "c:晚餐", "c:午餐"], defaults.Select(i => i.Id));
     }
 
     private static Transaction Expense(decimal amount, DateOnly? date = null, string category = "午餐", string? majorCategory = "Diet") =>

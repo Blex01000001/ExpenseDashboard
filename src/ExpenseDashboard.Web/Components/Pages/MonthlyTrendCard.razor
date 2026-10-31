@@ -1,0 +1,256 @@
+@using System.Text.Json
+@using ExpenseDashboard.Domain.Reports
+@inject IJSRuntime JS
+
+<section class="card chart-card" aria-label="每月花費">
+    <h2>每月花費</h2>
+
+    @if (selectionLoaded)
+    {
+        <div class="trend-picker">
+            <span class="trend-picker-label">折線項目（@SelectedCount/@MaxItems）</span>
+            @for (var slot = 0; slot < MaxItems; slot++)
+            {
+                var id = selection[slot];
+                if (id is null)
+                {
+                    continue;
+                }
+                var currentSlot = slot;
+                <span class="chip">
+                    <span class="chip-swatch" style="background: @LineColors[slot]"></span>
+                    @DisplayName(id)
+                    <button type="button" class="chip-remove" title="移除" aria-label="移除 @DisplayName(id)"
+                            @onclick="() => RemoveAsync(currentSlot)">×</button>
+                </span>
+            }
+            <select value="" @onchange="AddAsync" disabled="@(SelectedCount >= MaxItems)" aria-label="加入折線項目">
+                <option value="">@(SelectedCount >= MaxItems ? $"最多 {MaxItems} 項" : "＋ 加入項目")</option>
+                <optgroup label="大類別">
+                    @foreach (var item in Items.Where(i => i.Kind == TrendItemKind.MajorCategory && !IsSelected(i.Id)))
+                    {
+                        <option value="@item.Id">@item.Name</option>
+                    }
+                </optgroup>
+                <optgroup label="類別">
+                    @foreach (var item in Items.Where(i => i.Kind == TrendItemKind.Category && !IsSelected(i.Id)))
+                    {
+                        <option value="@item.Id">@item.Name</option>
+                    }
+                </optgroup>
+            </select>
+        </div>
+
+        <ApexChart @key="ChartKey" TItem="ChartPoint" Options="CreateOptions()" Height="340">
+            <ApexPointSeries TItem="ChartPoint" Items="TotalPoints" Name="@TotalSeriesName" SeriesType="SeriesType.Bar"
+                             XValue="@(p => p.Label)" YValue="@(p => p.Value)" />
+            @foreach (var (id, _) in SelectedSlots)
+            {
+                <ApexPointSeries TItem="ChartPoint" Items="LinePoints(id)" Name="@DisplayName(id)" SeriesType="SeriesType.Line"
+                                 XValue="@(p => p.Label)" YValue="@(p => p.Value)" />
+            }
+        </ApexChart>
+        <p class="muted chart-note">
+            <span class="chip-swatch bar-swatch" style="background: @BarColor"></span> 長條＝每月總花費（左軸）；折線＝上方所選項目（右軸）。
+        </p>
+    }
+</section>
+
+@code {
+    public sealed record ChartPoint(string Label, decimal? Value);
+
+    private const int MaxItems = 5;
+    private const string StorageKey = "expense-dashboard.trend-items";
+    private const string TotalSeriesName = "總花費";
+
+    // 色票與 app.css 一致：長條用支出橘；折線依 dataviz 暗色分類色固定順序（跳過橘色），
+    // 顏色綁在「欄位」上，移除某一項不會讓其他項換色。
+    private const string BarColor = "#d95926";
+    private static readonly string[] LineColors = ["#3987e5", "#199e70", "#c98500", "#d55181", "#008300"];
+    // 五條線超過 3 色時色盲難以分辨，用虛線樣式當第二種編碼。
+    private static readonly int[] LineDashes = [0, 6, 2, 10, 4];
+    private const string SurfaceColor = "#1a1a19";
+    private const string GridColor = "#2c2c2a";
+    private const string MutedInk = "#898781";
+    private const string AmountFormatter = "function (value) { return value == null ? '—' : Number(value).toLocaleString('zh-TW', { maximumFractionDigits: 2 }); }";
+    private const string AxisFormatter = "function (value) { return Number(value).toLocaleString('zh-TW', { notation: 'compact', maximumFractionDigits: 1 }); }";
+
+    [Parameter, EditorRequired] public IReadOnlyList<MonthValue> MonthlyTotals { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<TrendItem> Items { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<TrendItem> DefaultItems { get; set; } = [];
+    [Parameter, EditorRequired] public string ChartKeyPrefix { get; set; } = string.Empty;
+
+    // selection[slot] = 項目 Id；slot 決定顏色與線型。
+    private readonly string?[] selection = new string?[MaxItems];
+    private bool selectionLoaded;
+
+    private int SelectedCount => selection.Count(id => id is not null);
+
+    private IEnumerable<(string Id, int Slot)> SelectedSlots =>
+        selection.Select((id, slot) => (id, slot)).Where(x => x.id is not null).Select(x => (x.id!, x.slot));
+
+    private string ChartKey => $"{ChartKeyPrefix}|{string.Join(",", selection)}";
+
+    private IReadOnlyList<ChartPoint> TotalPoints => MonthlyTotals.Select(m => new ChartPoint(m.Label, m.Total)).ToList();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        var saved = await LoadSavedSelectionAsync();
+        if (saved is not null)
+        {
+            for (var i = 0; i < MaxItems; i++)
+            {
+                selection[i] = i < saved.Length ? saved[i] : null;
+            }
+        }
+        else
+        {
+            for (var i = 0; i < DefaultItems.Count && i < MaxItems; i++)
+            {
+                selection[i] = DefaultItems[i].Id;
+            }
+        }
+        selectionLoaded = true;
+        StateHasChanged();
+    }
+
+    private bool IsSelected(string id) => selection.Contains(id);
+
+    private async Task AddAsync(ChangeEventArgs e)
+    {
+        var id = e.Value?.ToString();
+        var freeSlot = Array.IndexOf(selection, null);
+        if (string.IsNullOrEmpty(id) || IsSelected(id) || freeSlot < 0)
+        {
+            return;
+        }
+        selection[freeSlot] = id;
+        await SaveSelectionAsync();
+    }
+
+    private async Task RemoveAsync(int slot)
+    {
+        selection[slot] = null;
+        await SaveSelectionAsync();
+    }
+
+    /// <summary>所選項目每月金額；該年沒有這個項目時，已過去的月份一律為 0。</summary>
+    private IReadOnlyList<ChartPoint> LinePoints(string id)
+    {
+        var item = Items.FirstOrDefault(i => i.Id == id);
+        return MonthlyTotals
+            .Select((m, index) => new ChartPoint(m.Label, item?.Monthly[index] ?? (m.Total is null ? null : 0m)))
+            .ToList();
+    }
+
+    private static string DisplayName(string id) =>
+        id.StartsWith("m:", StringComparison.Ordinal) ? $"{id[2..]}（大類別）" : id[2..];
+
+    // localStorage 只是本機便利功能：讀寫失敗（例如私密視窗）就當作沒有存過。
+    private async Task<string?[]?> LoadSavedSelectionAsync()
+    {
+        try
+        {
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", StorageKey);
+            return json is null ? null : JsonSerializer.Deserialize<string?[]>(json);
+        }
+        catch (Exception ex) when (ex is JSException or JsonException)
+        {
+            return null;
+        }
+    }
+
+    private async Task SaveSelectionAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", StorageKey, JsonSerializer.Serialize(selection));
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private ApexChartOptions<ChartPoint> CreateOptions()
+    {
+        var lineSlots = SelectedSlots.Select(s => s.Slot).ToList();
+        var firstLine = SelectedSlots.Select(s => DisplayName(s.Id)).FirstOrDefault();
+
+        var yaxis = new List<YAxis>
+        {
+            new()
+            {
+                SeriesName = TotalSeriesName,
+                Title = new AxisTitle { Text = "總花費" },
+                Labels = new YAxisLabels { Formatter = AxisFormatter },
+            },
+        };
+        // 所有折線共用右軸：第一條顯示刻度，其餘指向同一個系列名稱並隱藏。
+        for (var i = 0; i < lineSlots.Count; i++)
+        {
+            yaxis.Add(new YAxis
+            {
+                SeriesName = firstLine,
+                Opposite = true,
+                Show = i == 0,
+                Title = i == 0 ? new AxisTitle { Text = "所選項目" } : null,
+                Labels = new YAxisLabels { Formatter = AxisFormatter },
+            });
+        }
+
+        return new ApexChartOptions<ChartPoint>
+        {
+            Chart = new Chart
+            {
+                Toolbar = new Toolbar { Show = false },
+                Zoom = new Zoom { Enabled = false },
+                FontFamily = "inherit",
+                Background = "transparent",
+                ForeColor = MutedInk,
+            },
+            Theme = new Theme { Mode = Mode.Dark },
+            Colors = [BarColor, .. lineSlots.Select(s => LineColors[s])],
+            DataLabels = new DataLabels { Enabled = false },
+            PlotOptions = new PlotOptions
+            {
+                Bar = new PlotOptionsBar
+                {
+                    BorderRadius = 4,
+                    BorderRadiusApplication = BorderRadiusApplication.End,
+                    ColumnWidth = "55%",
+                },
+            },
+            Stroke = new Stroke
+            {
+                Width = [0d, .. lineSlots.Select(_ => 2d)],
+                DashArray = [0d, .. lineSlots.Select(s => (double)LineDashes[s])],
+                Curve = Curve.Straight,
+            },
+            Markers = new Markers { Size = [0d, .. lineSlots.Select(_ => 4d)], StrokeColors = SurfaceColor, StrokeWidth = 2 },
+            Grid = new Grid { BorderColor = GridColor, StrokeDashArray = 0 },
+            // 上方的項目標籤（含色塊）就是圖例，圖表本身不再重複一份。
+            Legend = new Legend { Show = false },
+            Xaxis = new XAxis { Labels = new XAxisLabels { Rotate = 0 } },
+            Yaxis = yaxis,
+            Tooltip = new Tooltip { Theme = Mode.Dark, Shared = true, Intersect = false, Y = new TooltipY { Formatter = AmountFormatter } },
+            // 窄螢幕：月份只留數字、長條加寬，避免 12 個標籤擠在一起。
+            Responsive =
+            [
+                new Responsive<ChartPoint>
+                {
+                    Breakpoint = 640,
+                    Options = new ApexChartOptions<ChartPoint>
+                    {
+                        Xaxis = new XAxis { Labels = new XAxisLabels { Rotate = 0, Formatter = "function (value) { return String(value).replace(' 月', ''); }" } },
+                        PlotOptions = new PlotOptions { Bar = new PlotOptionsBar { BorderRadius = 2, BorderRadiusApplication = BorderRadiusApplication.End, ColumnWidth = "80%" } },
+                    },
+                },
+            ],
+        };
+    }
+}

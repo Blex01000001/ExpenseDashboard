@@ -1,3 +1,4 @@
+using ExpenseDashboard.Domain.Reports;
 using ExpenseDashboard.Domain.Transactions;
 using ExpenseDashboard.Tests.Data;
 using ExpenseDashboard.Web.Dashboard;
@@ -65,6 +66,29 @@ public class DashboardServiceTests
     }
 
     [Fact]
+    public async Task Year_over_year_uses_the_whole_previous_year()
+    {
+        using var database = await SeedAsync(
+            New(new DateOnly(2024, 6, 15), 200m),
+            New(new DateOnly(2025, 6, 15), 300m));
+
+        var data = await CreateService(database).LoadAsync(new DashboardFilter(2025, "TWD"));
+
+        Assert.Equal(0.5m, Assert.Single(data.Months).YearOverYearRatio);
+    }
+
+    [Fact]
+    public async Task Monthly_totals_leave_future_months_empty()
+    {
+        using var database = await SeedAsync(New(new DateOnly(2025, 2, 1), 10m));
+
+        var data = await CreateService(database, today: new DateOnly(2025, 3, 20))
+            .LoadAsync(new DashboardFilter(2025, "TWD"));
+
+        Assert.Equal([0m, 10m, 0m, null], data.MonthlyTotals.Take(4).Select(m => m.Total));
+    }
+
+    [Fact]
     public async Task Current_month_daily_average_uses_the_clock()
     {
         using var database = await SeedAsync(New(new DateOnly(2025, 10, 1), 500m));
@@ -85,7 +109,7 @@ public class DashboardServiceTests
         var data = await CreateService(database).LoadAsync(new DashboardFilter(2025, "USD"));
 
         Assert.Equal(5m, data.Year.Total);
-        Assert.Equal(5m, Assert.Single(data.TopCategories).Amount);
+        Assert.Equal(5m, data.TrendItems.Single(i => i.Kind == TrendItemKind.Category).YearTotal);
     }
 
     [Fact]
@@ -97,12 +121,12 @@ public class DashboardServiceTests
 
         Assert.Equal(0, data.Year.Count);
         Assert.Empty(data.Months);
-        Assert.Empty(data.ByMajorCategory);
-        Assert.Empty(data.TopCategories);
+        Assert.Empty(data.TrendItems);
+        Assert.Empty(data.FeaturedMajorCategories);
     }
 
     [Fact]
-    public async Task Year_breakdowns_exclude_income_and_the_extra_december()
+    public async Task Year_breakdowns_exclude_income_and_the_previous_year()
     {
         using var database = await SeedAsync(
             New(new DateOnly(2025, 1, 1), 300m, category: "房租", majorCategory: "Home"),
@@ -112,8 +136,8 @@ public class DashboardServiceTests
 
         var data = await CreateService(database).LoadAsync(new DashboardFilter(2025, "TWD"));
 
-        Assert.Equal(["Home", "Diet"], data.ByMajorCategory.Select(c => c.Name));
-        Assert.Equal(["房租", "午餐"], data.TopCategories.Select(c => c.Name));
+        Assert.Equal(["Home", "Diet"], data.FeaturedMajorCategories);
+        Assert.Equal(["m:Home", "m:Diet", "c:房租", "c:午餐"], data.TrendItems.Select(i => i.Id));
         Assert.Equal(400m, data.Year.Total);
     }
 

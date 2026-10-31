@@ -10,66 +10,95 @@
             }
         </span>
         <span class="month-total">@FormatAmount(Month.Total)</span>
-        <span class="month-change">@ChangeText</span>
     </header>
 
-    <dl class="stat-list compact">
+    <dl class="month-stats">
+        <div>
+            <dt>較上月</dt>
+            <dd><ChangeBadge Ratio="Month.ChangeRatio" /></dd>
+        </div>
+        <div>
+            <dt>較去年同月</dt>
+            <dd><ChangeBadge Ratio="Month.YearOverYearRatio" /></dd>
+        </div>
         <div>
             <dt>日均</dt>
             <dd>@FormatAmount(Month.DailyAverage)</dd>
-        </div>
-        <div>
-            <dt>筆數</dt>
-            <dd>@Month.Count.ToString("N0")</dd>
         </div>
     </dl>
 
     @if (Month.MajorCategories.Count > 0)
     {
-        <ul class="share-list" aria-label="大類別分布">
-            @foreach (var category in Month.MajorCategories)
-            {
-                <li>
-                    <span class="share-name">@category.Name</span>
-                    <span class="share-track" aria-hidden="true">
-                        <span class="share-fill" style="width: @ShareWidth(category.Share)"></span>
-                    </span>
-                    <span class="share-value">@Percent(category.Share)</span>
-                </li>
-            }
-        </ul>
+        <ApexChart TItem="CategoryTotal" Options="options" Height="240">
+            <ApexPointSeries TItem="CategoryTotal" Items="Month.MajorCategories" Name="支出" SeriesType="SeriesType.Donut"
+                             XValue="@(c => c.Name)" YValue="@(c => c.Amount)" />
+        </ApexChart>
     }
     else
     {
         <p class="muted">這個月沒有支出。</p>
     }
-
-    @if (Month.Largest is { } largest)
-    {
-        <p class="month-largest">
-            最大筆：@largest.Category @FormatAmount(largest.Amount)（@largest.Date.Month/@largest.Date.Day）
-        </p>
-    }
 </article>
 
 @code {
+    // dataviz 暗色分類色，依固定順序配給年度前 5 名大類別；「其他」用 muted 灰。
+    private static readonly string[] SliceColors = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181"];
+    private const string OtherColor = "#898781";
+    private const string SurfaceColor = "#1a1a19";
+    private const string MutedInk = "#898781";
+    private const string AmountFormatter = "function (value) { return Number(value).toLocaleString('zh-TW', { maximumFractionDigits: 0 }); }";
+    private const string TotalFormatter = "function (w) { return w.globals.seriesTotals.reduce(function (a, b) { return a + b; }, 0).toLocaleString('zh-TW', { maximumFractionDigits: 0 }); }";
+
     [Parameter, EditorRequired] public MonthAnalysis Month { get; set; } = default!;
     [Parameter, EditorRequired] public string Currency { get; set; } = string.Empty;
+    /// <summary>年度前幾名的大類別（依序），決定每個大類別在所有月卡片上的固定顏色。</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<string> FeaturedMajorCategories { get; set; } = [];
     [Parameter] public bool InProgress { get; set; }
 
-    private string ChangeText => Month.ChangeRatio switch
-    {
-        null => "較上月：—",
-        > 0 and var r => $"較上月 ▲ {Percent(r)}",
-        < 0 and var r => $"較上月 ▼ {Percent(-r)}",
-        _ => "較上月持平",
-    };
+    private ApexChartOptions<CategoryTotal> options = default!;
 
-    // 不用 "P0"：伺服器文化設定會在數字和 % 之間插空白。
-    private static string Percent(decimal ratio) => $"{ratio * 100:0}%";
+    protected override void OnParametersSet() => options = CreateOptions();
 
     private string FormatAmount(decimal amount) => $"{amount:#,0} {Currency}";
 
-    private static string ShareWidth(decimal share) =>
-        $"{Math.Round(share * 100, 1).ToString(System.Globalization.CultureInfo.InvariantCulture)}%";
+    private string ColorFor(string name)
+    {
+        var index = FeaturedMajorCategories.ToList().IndexOf(name);
+        return index >= 0 && index < SliceColors.Length ? SliceColors[index] : OtherColor;
+    }
+
+    // 每張卡片各自一份 options（ApexChart 會把 chart id 寫進 options，不能共用）。
+    private ApexChartOptions<CategoryTotal> CreateOptions() => new()
+    {
+        Chart = new Chart
+        {
+            Toolbar = new Toolbar { Show = false },
+            FontFamily = "inherit",
+            Background = "transparent",
+            ForeColor = MutedInk,
+        },
+        Theme = new Theme { Mode = Mode.Dark },
+        Colors = Month.MajorCategories.Select(c => ColorFor(c.Name)).ToList(),
+        Labels = Month.MajorCategories.Select(c => c.Name).ToList(),
+        DataLabels = new DataLabels { Enabled = false },
+        // 扇形之間留 2px 表面色間隙。
+        Stroke = new Stroke { Show = true, Width = 2, Colors = [SurfaceColor] },
+        Legend = new Legend { Show = true, Position = LegendPosition.Bottom, HorizontalAlign = Align.Center },
+        PlotOptions = new PlotOptions
+        {
+            Pie = new PlotOptionsPie
+            {
+                Donut = new PlotOptionsDonut
+                {
+                    Size = "62%",
+                    Labels = new DonutLabels
+                    {
+                        Show = true,
+                        Total = new DonutLabelTotal { Show = true, Label = $"總額 {Currency}", Formatter = TotalFormatter },
+                    },
+                },
+            },
+        },
+        Tooltip = new Tooltip { Theme = Mode.Dark, Y = new TooltipY { Formatter = AmountFormatter } },
+    };
 }
