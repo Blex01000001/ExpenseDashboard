@@ -195,11 +195,4 @@ public class DashboardServiceTests
         Type = type,
         UpdatedAt = new DateTime(2025, 1, 4, 12, 0, 0),
     };
-
-    private sealed class FixedTimeProvider(DateOnly today) : TimeProvider
-    {
-        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
-
-        public override DateTimeOffset GetUtcNow() => new(today.ToDateTime(new TimeOnly(12, 0)), TimeSpan.Zero);
-    }
 }

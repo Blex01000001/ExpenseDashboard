@@ -15,7 +15,7 @@ public class TransactionImporterTests
         using var database = new SqliteTestDatabase();
         var importer = new TransactionImporter(database);
 
-        var summary = await importer.ImportAsync([NewTransaction(), NewTransaction()]);
+        var summary = (await importer.ImportAsync([NewTransaction(), NewTransaction()])).Summary;
 
         Assert.Equal(new ImportSummary(Added: 2, Updated: 0, Unchanged: 0), summary);
         await using var db = database.CreateDbContext();
@@ -30,7 +30,7 @@ public class TransactionImporterTests
         var externalId = Guid.NewGuid();
         await importer.ImportAsync([NewTransaction(externalId)]);
 
-        var summary = await importer.ImportAsync([NewTransaction(externalId)]);
+        var summary = (await importer.ImportAsync([NewTransaction(externalId)])).Summary;
 
         Assert.Equal(new ImportSummary(Added: 0, Updated: 0, Unchanged: 1), summary);
         await using var db = database.CreateDbContext();
@@ -49,7 +49,7 @@ public class TransactionImporterTests
         newer.Category = "晚餐";
         newer.Note = "改過";
         newer.Tags = "新標籤";
-        var summary = await importer.ImportAsync([newer]);
+        var summary = (await importer.ImportAsync([newer])).Summary;
 
         Assert.Equal(new ImportSummary(Added: 0, Updated: 1, Unchanged: 0), summary);
         await using var db = database.CreateDbContext();
@@ -69,7 +69,7 @@ public class TransactionImporterTests
         var externalId = Guid.NewGuid();
         await importer.ImportAsync([NewTransaction(externalId, amount: 100m)]);
 
-        var summary = await importer.ImportAsync([NewTransaction(externalId, amount: 1m, updatedAt: BaseTime.AddDays(-1))]);
+        var summary = (await importer.ImportAsync([NewTransaction(externalId, amount: 1m, updatedAt: BaseTime.AddDays(-1))])).Summary;
 
         Assert.Equal(new ImportSummary(Added: 0, Updated: 0, Unchanged: 1), summary);
         await using var db = database.CreateDbContext();
@@ -83,11 +83,11 @@ public class TransactionImporterTests
         var importer = new TransactionImporter(database);
         var externalId = Guid.NewGuid();
 
-        var summary = await importer.ImportAsync(
+        var summary = (await importer.ImportAsync(
         [
             NewTransaction(externalId, amount: 300m, updatedAt: BaseTime.AddHours(1)),
             NewTransaction(externalId, amount: 100m),
-        ]);
+        ])).Summary;
 
         Assert.Equal(new ImportSummary(Added: 1, Updated: 0, Unchanged: 0), summary);
         await using var db = database.CreateDbContext();
@@ -115,8 +115,8 @@ public class TransactionImporterTests
         var ids = Enumerable.Range(0, 1200).Select(_ => Guid.NewGuid()).ToList();
         await importer.ImportAsync(ids.Select(id => NewTransaction(id)).ToList());
 
-        var summary = await importer.ImportAsync(
-            ids.Select(id => NewTransaction(id, updatedAt: BaseTime.AddMinutes(1))).Append(NewTransaction()).ToList());
+        var summary = (await importer.ImportAsync(
+            ids.Select(id => NewTransaction(id, updatedAt: BaseTime.AddMinutes(1))).Append(NewTransaction()).ToList())).Summary;
 
         Assert.Equal(new ImportSummary(Added: 1, Updated: 1200, Unchanged: 0), summary);
     }
@@ -131,11 +131,51 @@ public class TransactionImporterTests
 
         var renamed = NewTransaction(externalId);
         renamed.Category = "便當";
-        var summary = await importer.ImportAsync([renamed]);
+        var summary = (await importer.ImportAsync([renamed])).Summary;
 
         Assert.Equal(new ImportSummary(Added: 0, Updated: 1, Unchanged: 0), summary);
         await using var db = database.CreateDbContext();
         Assert.Equal("便當", (await db.Transactions.SingleAsync()).Category);
+    }
+
+    [Fact]
+    public async Task Import_result_lists_changed_fields_of_overwritten_records()
+    {
+        using var database = new SqliteTestDatabase();
+        var importer = new TransactionImporter(database);
+        var externalId = Guid.NewGuid();
+        var unchangedId = Guid.NewGuid();
+        await importer.ImportAsync([NewTransaction(externalId, amount: 200m), NewTransaction(unchangedId)]);
+
+        var edited = NewTransaction(externalId, amount: 250m, updatedAt: BaseTime.AddMinutes(1));
+        edited.Note = "加點飲料";
+        var touched = NewTransaction(unchangedId, updatedAt: BaseTime.AddMinutes(1));
+        var result = await importer.ImportAsync([edited, touched, NewTransaction()]);
+
+        Assert.Equal(new ImportSummary(Added: 1, Updated: 2, Unchanged: 0), result.Summary);
+        var amountChange = Assert.Single(result.Changes, c => c.Amount == 250m);
+        Assert.Equal(
+            [new FieldChange("金額", "200", "250"), new FieldChange("備註", "（空）", "加點飲料")],
+            amountChange.Changes);
+        // 只有「上次更新」變了：列出但沒有欄位變動。
+        Assert.Single(result.Changes, c => c.Changes.Count == 0);
+    }
+
+    [Fact]
+    public void ChangesFrom_formats_dates_types_and_empty_values()
+    {
+        var before = NewTransaction();
+        var after = NewTransaction(before.ExternalId, date: new DateOnly(2025, 2, 1));
+        after.MajorCategory = null;
+        after.Type = TransactionType.Income;
+
+        Assert.Equal(
+            [
+                new FieldChange("日期", "2025/01/04", "2025/02/01"),
+                new FieldChange("大類別", "Diet", "（空）"),
+                new FieldChange("收支區分", "支", "收"),
+            ],
+            after.ChangesFrom(before));
     }
 
     [Fact]
@@ -148,7 +188,7 @@ public class TransactionImporterTests
 
         var stale = NewTransaction(externalId, updatedAt: BaseTime.AddSeconds(-1));
         stale.Category = "舊名稱";
-        var summary = await importer.ImportAsync([stale]);
+        var summary = (await importer.ImportAsync([stale])).Summary;
 
         Assert.Equal(new ImportSummary(Added: 0, Updated: 0, Unchanged: 1), summary);
         await using var db = database.CreateDbContext();

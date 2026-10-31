@@ -113,6 +113,11 @@ select, input, textarea, button {
         font-size: 0.875rem;
     }
 
+.comparison-note {
+    margin-left: 0.25rem;
+    font-size: 0.75rem;
+}
+
 .month-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
@@ -367,6 +372,33 @@ button {
         border-radius: 2px;
     }
 
+.tag-months {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 0.25rem 0.75rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.8125rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.tag-month {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.125rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+@media (max-width: 720px) {
+    .tag-months {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.empty-state p {
+    margin: 0 0 0.5rem;
+}
+
 .form-hint {
     margin: 0;
     font-size: 0.8125rem;
@@ -490,6 +522,48 @@ button {
         margin-top: 0.2rem;
     }
 
+.change-list {
+    margin-top: 1rem;
+}
+
+    .change-list h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1rem;
+    }
+
+    .change-list ul {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.875rem;
+    }
+
+    .change-list li {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+        padding: 0.375rem 0;
+        border-bottom: 1px solid var(--border);
+    }
+
+.change-title {
+    min-width: 14rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.field-change {
+    color: var(--text-secondary);
+}
+
+    .field-change del {
+        color: var(--text-muted);
+    }
+
+    .field-change ins {
+        text-decoration: none;
+        color: var(--text-primary);
+    }
+
 .delete-preview {
     margin-top: 1rem;
 }
@@ -541,7 +615,7 @@ h1:focus {
 }
 
     .blazor-error-boundary::after {
-        content: "An error has occurred."
+        content: "發生錯誤，這個區塊無法顯示。"
     }
 
 .darker-border-checkbox.form-check-input {

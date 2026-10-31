@@ -16,6 +16,12 @@ public sealed record YearSummary(
     MonthAnalysis? PeakMonth);
 
 /// <summary>
+/// 年度「較去年同期」：今年 1/1 到 <see cref="PeriodEnd"/> 的支出，對比去年同一段日期。
+/// <see cref="Ratio"/> 為增減比例（0.1 = 多 10%），去年同期沒有支出時為 null。
+/// </summary>
+public sealed record YearComparison(DateOnly PeriodEnd, decimal CurrentTotal, decimal PreviousTotal, decimal? Ratio);
+
+/// <summary>
 /// 單月花費分析。<see cref="ChangeRatio"/> 為相對上月、<see cref="YearOverYearRatio"/> 為相對去年同月的
 /// 增減比例（0.1 = 多 10%），比較基準沒有支出時為 null。
 /// <see cref="MajorCategories"/> 是給圓餅圖用的大類別分布：只列年度前幾名的大類別，其餘併入「其他」。
@@ -139,6 +145,26 @@ public static class DashboardCalculator
             months.Count,
             months.Count == 0 ? 0 : total / months.Count,
             peak);
+    }
+
+    /// <summary>
+    /// 年度較去年同期。進行中的年度比到 <paramref name="today"/>（去年同一天；2/29 對應 2/28），
+    /// 已結束的年度比整年。<paramref name="transactions"/> 需包含前一年的資料。
+    /// </summary>
+    public static YearComparison CompareWithPreviousYear(IEnumerable<Transaction> transactions, int year, DateOnly today)
+    {
+        var periodEnd = year == today.Year ? today : new DateOnly(year, 12, 31);
+        var previousEnd = periodEnd.AddYears(-1);
+        var expenses = Expenses(transactions).ToList();
+
+        var current = expenses
+            .Where(t => t.Date >= new DateOnly(year, 1, 1) && t.Date <= periodEnd)
+            .Sum(t => t.Amount);
+        var previous = expenses
+            .Where(t => t.Date >= new DateOnly(year - 1, 1, 1) && t.Date <= previousEnd)
+            .Sum(t => t.Amount);
+
+        return new YearComparison(periodEnd, current, previous, Ratio(current, previous));
     }
 
     /// <summary><paramref name="year"/> 年 1–12 月每月的總花費。</summary>

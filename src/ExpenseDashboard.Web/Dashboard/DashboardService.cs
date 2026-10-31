@@ -12,6 +12,7 @@ public sealed record DashboardOptions(IReadOnlyList<int> Years, IReadOnlyList<st
 /// <param name="FeaturedMajorCategories">圓餅圖固定配色的大類別（年度前幾名，依序），每張月卡片共用。</param>
 public sealed record DashboardData(
     YearSummary Year,
+    YearComparison YearComparison,
     IReadOnlyList<MonthAnalysis> Months,
     IReadOnlyList<MonthValue> MonthlyTotals,
     IReadOnlyList<TrendItem> TrendItems,
@@ -66,6 +67,7 @@ public class DashboardService(IDbContextFactory<ExpenseDbContext> dbFactory, Tim
 
         return new DashboardData(
             DashboardCalculator.SummarizeYear(filter.Year, months),
+            DashboardCalculator.CompareWithPreviousYear(transactions, filter.Year, today),
             months,
             DashboardCalculator.MonthlyTotals(transactions, filter.Year, today),
             DashboardCalculator.TrendItems(transactions, filter.Year, today, rules),

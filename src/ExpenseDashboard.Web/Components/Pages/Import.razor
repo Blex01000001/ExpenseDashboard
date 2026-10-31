@@ -38,6 +38,36 @@
     </p>
 }
 
+@if (changes.Count > 0)
+{
+    <section class="card change-list" aria-label="更新的紀錄">
+        <h2>更新的 @changes.Count 筆紀錄</h2>
+        <ul>
+            @foreach (var change in changes.Take(ChangeLimit))
+            {
+                <li>
+                    <span class="change-title">@change.Date.ToString("yyyy/MM/dd") @change.Category @change.Amount.ToString("#,0.##") @change.Currency</span>
+                    @if (change.Changes.Count == 0)
+                    {
+                        <span class="muted">內容沒變，只更新了「上次更新」時間</span>
+                    }
+                    else
+                    {
+                        @foreach (var field in change.Changes)
+                        {
+                            <span class="field-change">@field.Field：<del>@field.Before</del> → <ins>@field.After</ins></span>
+                        }
+                    }
+                </li>
+            }
+        </ul>
+        @if (changes.Count > ChangeLimit)
+        {
+            <p class="muted table-note">只列出前 @ChangeLimit 筆，還有 @(changes.Count - ChangeLimit) 筆。</p>
+        }
+    </section>
+}
+
 @if (syncNotice is not null)
 {
     <p class="muted">@syncNotice</p>
@@ -95,7 +125,10 @@
     private bool isImporting;
     private string? fileName;
     private string? failure;
+    private const int ChangeLimit = 100;
+
     private ImportSummary? summary;
+    private IReadOnlyList<ImportChange> changes = [];
     private IReadOnlyList<CsvImportError> errors = [];
     private bool syncDeletes;
     private IReadOnlyList<Transaction>? missing;
@@ -108,6 +141,7 @@
         fileName = e.File.Name;
         failure = null;
         summary = null;
+        changes = [];
         errors = [];
         missing = null;
         syncNotice = null;
@@ -134,7 +168,9 @@
 
             if (result.Transactions.Count > 0)
             {
-                summary = await Importer.ImportAsync(result.Transactions);
+                var imported = await Importer.ImportAsync(result.Transactions);
+                summary = imported.Summary;
+                changes = imported.Changes;
                 if (syncDeletes)
                 {
                     await PreviewMissingAsync(result);

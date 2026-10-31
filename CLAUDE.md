@@ -7,7 +7,7 @@
 - .NET 10，Blazor Web App，**Interactive Server，全域互動**（`App.razor` 的 `<Routes @rendermode="InteractiveServer" />`）
 - EF Core 10 + SQLite（`Microsoft.EntityFrameworkCore.Sqlite`）
 - 圖表：[Blazor-ApexCharts](https://github.com/apexcharts/Blazor-ApexCharts)（`ApexCharts` namespace，已在 `_Imports.razor` 引入，`Program.cs` 有 `AddApexCharts()`）
-- 測試：xUnit + in-memory SQLite
+- 測試：xUnit + in-memory SQLite；Razor 元件用 bUnit
 
 ## 專案結構
 
@@ -65,7 +65,7 @@ App 不同版本的匯出格式不同，兩種都要支援（範例皆為虛構�
 | 貨幣（新版：幣別） | `Currency` | ISO 代碼，目前都是 TWD |
 | 成員／帳戶 | `Member` / `Account` | |
 | 備註 | `Note` | 自由文字，可能含逗號或引號，必須用符合 RFC 4180 的方式解析，不要直接 `Split(',')` |
-| 標籤（選填，新版才有） | `Tags` | 原樣保存（可能含逗號），空字串存 `null`；舊版匯出沒有這欄 |
+| 標籤（選填，新版才有） | `Tags` | 原樣保存（可能含逗號），空字串存 `null`；舊版匯出沒有這欄。**使用者目前沒在用標籤**（欄位都是空的），分類靠備註＋關鍵字規則 |
 | 收支區分 | `Type` | `支` → `Expense`，`收` → `Income` |
 | 上次更新 | `UpdatedAt` (`DateTime`) | `yyyy-MM-dd HH:mm:ss`，本地時間（不做時區轉換） |
 | UUID | `ExternalId` (`Guid`) | 唯一索引；重複匯入時用它 upsert／去重 |
@@ -77,7 +77,7 @@ App 不同版本的匯出格式不同，兩種都要支援（範例皆為虛構�
 
 1. `Import.razor`（`/import`）用 `InputFile` 讀檔（上限 20 MB），先複製到 `MemoryStream`，再以 `StreamReader`（自動去 BOM）交給解析器。
 2. `Domain/Import/DailyExpenseCsvParser.Parse(TextReader)`：依**標題名稱**對應欄位（順序無關），底層用 `CsvReader`（RFC 4180）。格式錯誤的列會略過，並以 `CsvImportError(行號, 訊息)` 回報；標題缺欄位則整份不解析。行號是該列在檔案中的起始行（多行備註會被計入）。
-3. `Web/Import/TransactionImporter.ImportAsync`：以 UUID upsert，回傳 `ImportSummary(Added, Updated, Unchanged)`。
+3. `Web/Import/TransactionImporter.ImportAsync`：以 UUID upsert，回傳 `ImportResult(Summary, Changes)`：`ImportSummary(Added, Updated, Unchanged)` 加上每筆被覆寫紀錄的欄位變動（`Transaction.ChangesFrom` → `FieldChange`，匯入頁列出前 100 筆；只差在「上次更新」時列出但標示「內容沒變」）。
    - 新 UUID → 新增；既有且「上次更新」**較新** → 覆寫；「上次更新」**相同但內容不同**（`Transaction.HasSameContent`）→ 也覆寫；較舊 → 不動（避免舊匯出檔蓋回新資料）。
    - 使用者已實測：在 App 修改舊紀錄（含改類別）時「上次更新」會跟著變。
    - 同一檔內重複 UUID 取「上次更新」最新的那筆。
@@ -96,12 +96,13 @@ App 不同版本的匯出格式不同，兩種都要支援（範例皆為虛構�
 - `Domain/Reports/DashboardCalculator`（純函式）：
   - `AnalyzeMonths(transactions, year, today)`：月卡片資料，範圍是該年**第一個到最後一個有支出的月份**（中間空月補 0）。每月有總額、筆數、日均、較上月、較去年同月（基準為 0 → `null`），以及圓餅圖用的大類別分布：只列**年度前 5 名大類別**（依年度排名順序），其餘併入「其他」，讓同一個大類別在每張卡片顏色一致。進行中的月份（`today` 所在月）日均只除到今天。
   - `SummarizeYear`：由月份結果彙總年度總額、筆數、月平均（除以統計月份數）、最高月份。
+  - `CompareWithPreviousYear`：年度卡的「較去年同期」。進行中的年度比 1/1 到今天 vs 去年 1/1 到同一天（2/29 對應 2/28）；已結束的年度比整年。去年同期為 0 → `null`。
   - `MonthlyTotals`：每月花費長條圖，固定 1–12 月；`today` 之後的月份為 `null`（不畫），已過去沒花費的月份為 0。
   - `TrendItems`：折線圖可選項目，依序為大類別（只列 CSV 真的有填大類別的，避免和類別組重複）、類別、備註關鍵字規則（全部列出，即使今年沒有符合）。`TrendItem.Id` 為 `m:名稱`／`c:名稱`／`k:規則Id`（規則用 Id，改名後選擇仍有效），各附 12 個月金額，規則同上。`DefaultTrendItems` 取年度前 3 名類別。
   - `FeaturedMajorCategories`：年度前 5 名大類別，月卡片圓餅圖的固定配色依據。
 - `Web/Dashboard/DashboardService`：依 `DashboardFilter(Year, Currency)` 撈資料，**多撈前一整年**（較上月、較去年同月）；`today` 取自注入的 `TimeProvider`（測試用 `FixedTimeProvider`）。**不同貨幣不混算**，貨幣選單只在資料有多種貨幣時出現。
 - 版面由上而下：標題列（「記帳儀表板」＋年度選單，同一行）→ 年度花費卡 → `MonthlyTrendCard.razor`（每月花費長條＋折線）→ `MonthCard.razor`（一個月一張，新到舊）。
-  - 導覽是 `MainLayout` 左上角的固定懸浮按鈕（儀表板、匯入 CSV、備註關鍵字）；窄螢幕（≤720px）只顯示圖示，`main` 會讓出左側空間。
+  - 導覽是 `MainLayout` 左上角的固定懸浮按鈕（儀表板、匯入 CSV、備註關鍵字、標籤彙總）；窄螢幕（≤720px）只顯示圖示，`main` 會讓出左側空間。
   - 折線圖：長條＝總花費（左軸）、折線＝所選項目（右軸，所有折線共用）。最多 5 項，顏色與線型綁在「欄位」上（移除一項不會讓其他項換色）；選擇存在瀏覽器 `localStorage`（`expense-dashboard.trend-items`），讀寫失敗就用預設。圖表圖例關閉，由上方的項目標籤代替。
   - 月卡片：總額、較上月、較去年同月（`ChangeBadge.razor`）、日均、大類別甜甜圈圖（中間顯示總額）。
 - **備註關鍵字規則**（`Domain/Rules/KeywordRule`，存在 `KeywordRules` 資料表，`Keywords` 為 EF primitive collection）：
@@ -110,6 +111,10 @@ App 不同版本的匯出格式不同，兩種都要支援（範例皆為虛構�
   - 只在統計時比對、不寫回交易，修改規則立刻套用到全部資料。
   - **只用在折線圖**，不進圓餅圖：同一筆支出會同時算在原本的類別和關鍵字項目，加總不等於總額。
   - 設定頁 `/keywords`（`KeywordRules.razor` + `Web/Rules/KeywordRuleService`）：規則列表在上、新增／編輯表單在下（按「編輯」會把焦點移到表單）。名稱唯一，列表顯示全部年份、全部貨幣的符合筆數與金額；點一列展開符合的紀錄（`GetMatchesAsync`，日期、金額、類別、備註並標示符合處，最多顯示 200 筆）。刪除按鈕為紅底白字（`.btn-danger`，`--danger-solid`）。
+- **標籤彙總頁** `/tags`（`Tags.razor` + `Web/Tags/TagService` + `Domain/Reports/TagCalculator`）：
+  - 依 CSV「標籤」欄。一筆多個標籤以逗號、頓號、分號分隔（**不拆空白**，標籤名可含空白），不分大小寫視為同一個，會分別算進每個標籤（加總可能超過年度總額）。
+  - 依年度（與貨幣）列出各標籤筆數、金額、占年度支出；點一列展開 1–12 月金額與明細。
+  - 資料庫完全沒有帶標籤的支出時，顯示說明文字而不是空表格。
 - Blazor-ApexCharts 注意事項：
   - **每張圖要有自己的 `ApexChartOptions` 實例**，共用會讓其中一張畫不出來。
   - Interactive Server 下 `FormatYAxisLabel` 等 C# 委派不支援，格式化改用 options 裡的 JS 字串（`Formatter = "function (value) { ... }"`）。
@@ -125,12 +130,14 @@ App 不同版本的匯出格式不同，兩種都要支援（範例皆為虛構�
 - 甜甜圈圖：年度前 5 名大類別依序用 `#3987e5`、`#d95926`、`#199e70`、`#c98500`、`#d55181`，「其他」用 `#898781`。
 - 增減（使用者要求上色）：▲ 花得比較多＝`--change-up` `#e66767`、▼ 花得比較少＝`--change-down` `#0ca30c`；只有三角形與百分比上色，標籤文字維持文字色，且一定有 ▲▼ 符號，不只靠顏色。
 - 其他文字一律用文字 token，不用系列色上色。
+- 錯誤提示（`MainLayout` 的 `#blazor-error-ui`、`ReconnectModal`、`Error.razor`、`NotFound.razor`、`.blazor-error-boundary`）全部是中文、暗色樣式。
 
 ## 開發慣例
 
 - 在元件裡用 `IDbContextFactory<ExpenseDbContext>` 並以 `await using` 建立短命 context，**不要**直接注入 `ExpenseDbContext`（Blazor Server circuit 生命週期很長，DbContext 不是執行緒安全的）。
 - 金額用 `decimal`。EF Core SQLite 會把 decimal 存成 TEXT，但 `Sum` 等彙總可以正常轉譯（有測試涵蓋）；`OrderBy` decimal 若出錯，改在用戶端排序。
-- 解析、彙總等純邏輯放 Domain 並寫單元測試；牽涉資料庫的測試用 `SqliteTestDatabase`（in-memory SQLite + 實際 migration），不要用 EF InMemory provider。
+- 解析、彙總等純邏輯放 Domain 並寫單元測試；牽涉資料庫的測試用 `SqliteTestDatabase`（in-memory SQLite + 實際 migration），不要用 EF InMemory provider。需要固定「今天」時用 `tests/.../FixedTimeProvider`。
+- 元件測試（bUnit）繼承 `Components/ComponentTestContext`：已註冊所有服務與 in-memory SQLite、固定今天為 2026/10/15、JS interop 寬鬆模式、`ApexChart<>` 換成 stub（圖表靠瀏覽器 JS 繪製，bUnit 無法驗證圖形本身）。頁面名稱和測試命名空間相同時（`Import`、`Tags`）用 using 別名。
 - 測試命名：`Method_or_behavior_expected_result`（底線分隔的英文句子）。
 - UI 文字與回覆使用者一律使用繁體中文。
 - 套件版本鎖定確切版本，不用萬用字元。

@@ -49,6 +49,15 @@ else if (data is not null)
             <span class="hero-value">@FormatAmount(data.Year.Total)</span>
             <dl class="stat-list">
                 <div>
+                    <dt>較去年同期</dt>
+                    <dd>
+                        <ChangeBadge Ratio="data.YearComparison.Ratio" />
+                        <span class="muted comparison-note">
+                            （@(data.Year.Year - 1) 年 1/1–@data.YearComparison.PeriodEnd.Month/@data.YearComparison.PeriodEnd.Day：@FormatAmount(data.YearComparison.PreviousTotal)）
+                        </span>
+                    </dd>
+                </div>
+                <div>
                     <dt>月平均</dt>
                     <dd>@FormatAmount(data.Year.MonthlyAverage)</dd>
                 </div>

@@ -13,14 +13,18 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8L3 12zM7.5 8h.01" /></svg>
         <span class="fab-label">備註關鍵字</span>
     </NavLink>
+    <NavLink class="fab" href="tags" title="標籤彙總">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9h14M5 15h14M10 3 8 21M16 3l-2 18" /></svg>
+        <span class="fab-label">標籤彙總</span>
+    </NavLink>
 </nav>
 
 <main>
     @Body
 </main>
 
-<div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
-    <span class="dismiss">🗙</span>
+<div id="blazor-error-ui" role="alert" data-nosnippet>
+    發生未預期的錯誤，部分功能可能無法使用。
+    <a href="." class="reload">重新載入</a>
+    <button type="button" class="dismiss" aria-label="關閉">✕</button>
 </div>

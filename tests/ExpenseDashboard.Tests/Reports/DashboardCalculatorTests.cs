@@ -256,6 +256,51 @@ public class DashboardCalculatorTests
     }
 
     [Fact]
+    public void CompareWithPreviousYear_of_the_current_year_stops_at_today()
+    {
+        var comparison = DashboardCalculator.CompareWithPreviousYear(
+            [
+                Expense(100m, new DateOnly(2024, 1, 1)),
+                Expense(50m, new DateOnly(2024, 10, 15)),
+                Expense(999m, new DateOnly(2024, 10, 16)),   // 去年同期之後，不算
+                Expense(300m, new DateOnly(2025, 3, 1)),
+                Income(5000m, new DateOnly(2025, 3, 1)),
+                Expense(999m, new DateOnly(2023, 12, 31)),
+            ],
+            2025,
+            today: new DateOnly(2025, 10, 15));
+
+        Assert.Equal(new DateOnly(2025, 10, 15), comparison.PeriodEnd);
+        Assert.Equal(300m, comparison.CurrentTotal);
+        Assert.Equal(150m, comparison.PreviousTotal);
+        Assert.Equal(1m, comparison.Ratio);
+    }
+
+    [Fact]
+    public void CompareWithPreviousYear_of_a_past_year_uses_the_whole_year()
+    {
+        var comparison = DashboardCalculator.CompareWithPreviousYear(
+            [Expense(200m, new DateOnly(2023, 12, 31)), Expense(150m, new DateOnly(2024, 12, 31))],
+            2024,
+            today: new DateOnly(2025, 6, 1));
+
+        Assert.Equal(new DateOnly(2024, 12, 31), comparison.PeriodEnd);
+        Assert.Equal(-0.25m, comparison.Ratio);
+    }
+
+    [Fact]
+    public void CompareWithPreviousYear_is_null_without_previous_spending_and_handles_leap_day()
+    {
+        var comparison = DashboardCalculator.CompareWithPreviousYear(
+            [Expense(10m, new DateOnly(2024, 2, 29))],
+            2024,
+            today: new DateOnly(2024, 2, 29));
+
+        Assert.Null(comparison.Ratio);
+        Assert.Equal(0m, comparison.PreviousTotal);
+    }
+
+    [Fact]
     public void Empty_month_has_no_breakdown()
     {
         var months = DashboardCalculator.AnalyzeMonths(

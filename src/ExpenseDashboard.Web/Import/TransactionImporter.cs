@@ -6,6 +6,12 @@ namespace ExpenseDashboard.Web.Import;
 
 public sealed record ImportSummary(int Added, int Updated, int Unchanged);
 
+/// <summary>被覆寫的一筆紀錄：覆寫後的日期、類別、金額，以及哪些欄位從什麼改成什麼。</summary>
+public sealed record ImportChange(DateOnly Date, string Category, decimal Amount, string Currency, IReadOnlyList<FieldChange> Changes);
+
+/// <param name="Changes">被覆寫的紀錄，依日期新到舊。</param>
+public sealed record ImportResult(ImportSummary Summary, IReadOnlyList<ImportChange> Changes);
+
 /// <summary>
 /// 以 <see cref="Transaction.ExternalId"/> 做 upsert：新的 UUID 新增；
 /// 已存在且 <see cref="Transaction.UpdatedAt"/> 較新、或時間相同但內容不同的覆寫；
@@ -17,7 +23,7 @@ public class TransactionImporter(IDbContextFactory<ExpenseDbContext> dbFactory)
     // 分批查詢既有資料，避免 IN 子句的參數數量超過 SQLite 上限。
     private const int LookupBatchSize = 500;
 
-    public async Task<ImportSummary> ImportAsync(IEnumerable<Transaction> transactions, CancellationToken cancellationToken = default)
+    public async Task<ImportResult> ImportAsync(IEnumerable<Transaction> transactions, CancellationToken cancellationToken = default)
     {
         // 同一檔案內若有重複 UUID，只保留最後更新的那筆。
         var incoming = transactions
@@ -40,6 +46,7 @@ public class TransactionImporter(IDbContextFactory<ExpenseDbContext> dbFactory)
         }
 
         int added = 0, updated = 0, unchanged = 0;
+        var changes = new List<ImportChange>();
         foreach (var transaction in incoming)
         {
             if (!existing.TryGetValue(transaction.ExternalId, out var current))
@@ -51,6 +58,8 @@ public class TransactionImporter(IDbContextFactory<ExpenseDbContext> dbFactory)
             else if (transaction.UpdatedAt > current.UpdatedAt
                      || (transaction.UpdatedAt == current.UpdatedAt && !transaction.HasSameContent(current)))
             {
+                changes.Add(new ImportChange(
+                    transaction.Date, transaction.Category, transaction.Amount, transaction.Currency, transaction.ChangesFrom(current)));
                 CopyValues(transaction, current);
                 updated++;
             }
@@ -61,7 +70,9 @@ public class TransactionImporter(IDbContextFactory<ExpenseDbContext> dbFactory)
         }
 
         await db.SaveChangesAsync(cancellationToken);
-        return new ImportSummary(added, updated, unchanged);
+        return new ImportResult(
+            new ImportSummary(added, updated, unchanged),
+            changes.OrderByDescending(c => c.Date).ToList());
     }
 
     /// <summary>
