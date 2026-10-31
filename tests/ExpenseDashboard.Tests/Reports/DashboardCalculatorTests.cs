@@ -1,4 +1,5 @@
 using ExpenseDashboard.Domain.Reports;
+using ExpenseDashboard.Domain.Rules;
 using ExpenseDashboard.Domain.Transactions;
 
 namespace ExpenseDashboard.Tests.Reports;
@@ -186,6 +187,75 @@ public class DashboardCalculatorTests
     }
 
     [Fact]
+    public void Category_without_major_category_is_its_own_slice()
+    {
+        var month = Assert.Single(DashboardCalculator.AnalyzeMonths(
+            [
+                Expense(300m, new DateOnly(2025, 1, 1), category: "運動", majorCategory: null),
+                Expense(100m, new DateOnly(2025, 1, 2), category: "ゲーム", majorCategory: null),
+                Expense(200m, new DateOnly(2025, 1, 3), category: "晚餐", majorCategory: "Diet"),
+            ],
+            2025,
+            LongAfter));
+
+        Assert.Equal(["運動", "Diet", "ゲーム"], month.MajorCategories.Select(c => c.Name));
+        Assert.DoesNotContain(month.MajorCategories, c => c.Name == DashboardCalculator.UncategorizedName);
+    }
+
+    [Fact]
+    public void FeaturedMajorCategories_uses_category_name_when_major_category_is_missing()
+    {
+        var featured = DashboardCalculator.FeaturedMajorCategories(
+            [
+                Expense(300m, new DateOnly(2025, 1, 1), category: "運動", majorCategory: null),
+                Expense(200m, new DateOnly(2025, 1, 2), majorCategory: "Diet"),
+                Expense(999m, new DateOnly(2024, 1, 2), majorCategory: "去年"),
+            ],
+            2025);
+
+        Assert.Equal(["運動", "Diet"], featured);
+    }
+
+    [Fact]
+    public void Keyword_trend_items_match_notes_case_insensitively_and_overlap_categories()
+    {
+        var rule = new KeywordRule { Id = 7, Name = "Steam 遊戲", Keywords = ["steam", "BA"] };
+
+        var items = DashboardCalculator.TrendItems(
+            [
+                Expense(300m, new DateOnly(2025, 1, 5), category: "ゲーム", majorCategory: null, note: "Steam 特價"),
+                Expense(100m, new DateOnly(2025, 2, 5), category: "ゲーム", majorCategory: null, note: "BA 課金"),
+                Expense(50m, new DateOnly(2025, 2, 6), category: "晚餐", note: "跟朋友"),
+                Expense(999m, new DateOnly(2024, 2, 6), category: "ゲーム", note: "steam 去年"),
+            ],
+            2025,
+            new DateOnly(2025, 3, 31),
+            [rule]);
+
+        var keyword = items.Single(i => i.Kind == TrendItemKind.Keyword);
+        Assert.Equal("k:7", keyword.Id);
+        Assert.Equal("Steam 遊戲（備註）", keyword.DisplayName);
+        Assert.Equal(400m, keyword.YearTotal);
+        Assert.Equal([300m, 100m, 0m, null], keyword.Monthly.Take(4));
+        // 同一筆支出仍照常算在原本的類別。
+        Assert.Equal(400m, items.Single(i => i.Id == "c:ゲーム").YearTotal);
+    }
+
+    [Fact]
+    public void Keyword_rules_without_matches_are_still_listed_last()
+    {
+        var items = DashboardCalculator.TrendItems(
+            [Expense(10m, new DateOnly(2025, 1, 1), note: "abc")],
+            2025,
+            LongAfter,
+            [new KeywordRule { Id = 1, Name = "B", Keywords = ["zzz"] }, new KeywordRule { Id = 2, Name = "A", Keywords = ["abc"] }]);
+
+        Assert.Equal(["k:2", "k:1"], items.Where(i => i.Kind == TrendItemKind.Keyword).Select(i => i.Id));
+        Assert.Equal(TrendItemKind.Keyword, items[^1].Kind);
+        Assert.All(items.Single(i => i.Id == "k:1").Monthly, v => Assert.Equal(0m, v));
+    }
+
+    [Fact]
     public void Empty_month_has_no_breakdown()
     {
         var months = DashboardCalculator.AnalyzeMonths(
@@ -224,7 +294,7 @@ public class DashboardCalculatorTests
     }
 
     [Fact]
-    public void TrendItems_lists_major_categories_then_categories_by_year_total()
+    public void TrendItems_lists_explicit_major_categories_then_categories_by_year_total()
     {
         var items = DashboardCalculator.TrendItems(
             [
@@ -237,7 +307,8 @@ public class DashboardCalculatorTests
             new DateOnly(2025, 3, 31));
 
         Assert.Equal(
-            ["m:" + DashboardCalculator.UncategorizedName, "m:Diet", "c:運動", "c:晚餐", "c:早餐"],
+            // 「運動」沒有大類別：只出現在類別組，不再另外多一條一模一樣的大類別線。
+            ["m:Diet", "c:運動", "c:晚餐", "c:早餐"],
             items.Select(i => i.Id));
 
         var diet = items.Single(i => i.Id == "m:Diet");
@@ -264,8 +335,13 @@ public class DashboardCalculatorTests
         Assert.Equal(["c:房租", "c:晚餐", "c:午餐"], defaults.Select(i => i.Id));
     }
 
-    private static Transaction Expense(decimal amount, DateOnly? date = null, string category = "午餐", string? majorCategory = "Diet") =>
-        New(TransactionType.Expense, amount, date, category, majorCategory);
+    private static Transaction Expense(
+        decimal amount, DateOnly? date = null, string category = "午餐", string? majorCategory = "Diet", string? note = null)
+    {
+        var transaction = New(TransactionType.Expense, amount, date, category, majorCategory);
+        transaction.Note = note;
+        return transaction;
+    }
 
     private static Transaction Income(decimal amount, DateOnly? date = null) =>
         New(TransactionType.Income, amount, date, "薪水", "Income");

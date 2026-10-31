@@ -3,6 +3,7 @@ using ExpenseDashboard.Web.Components;
 using ExpenseDashboard.Web.Dashboard;
 using ExpenseDashboard.Web.Data;
 using ExpenseDashboard.Web.Import;
+using ExpenseDashboard.Web.Rules;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +18,7 @@ builder.Services.AddDbContextFactory<ExpenseDbContext>(options =>
 
 builder.Services.AddScoped<TransactionImporter>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<KeywordRuleService>();
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddApexCharts();

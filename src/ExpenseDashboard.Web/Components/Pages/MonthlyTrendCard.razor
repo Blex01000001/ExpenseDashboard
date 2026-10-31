@@ -24,7 +24,8 @@
                             @onclick="() => RemoveAsync(currentSlot)">×</button>
                 </span>
             }
-            <select value="" @onchange="AddAsync" disabled="@(SelectedCount >= MaxItems)" aria-label="加入折線項目">
+            @* 選完一項後瀏覽器會停在下一個選項；用 @key 讓選單重建，回到「＋ 加入項目」。 *@
+            <select @key="ChartKey" value="" @onchange="AddAsync" disabled="@(SelectedCount >= MaxItems)" aria-label="加入折線項目">
                 <option value="">@(SelectedCount >= MaxItems ? $"最多 {MaxItems} 項" : "＋ 加入項目")</option>
                 <optgroup label="大類別">
                     @foreach (var item in Items.Where(i => i.Kind == TrendItemKind.MajorCategory && !IsSelected(i.Id)))
@@ -38,6 +39,15 @@
                         <option value="@item.Id">@item.Name</option>
                     }
                 </optgroup>
+                @if (Items.Any(i => i.Kind == TrendItemKind.Keyword))
+                {
+                    <optgroup label="備註關鍵字">
+                        @foreach (var item in Items.Where(i => i.Kind == TrendItemKind.Keyword && !IsSelected(i.Id)))
+                        {
+                            <option value="@item.Id">@item.Name</option>
+                        }
+                    </optgroup>
+                }
             </select>
         </div>
 
@@ -148,8 +158,14 @@
             .ToList();
     }
 
-    private static string DisplayName(string id) =>
-        id.StartsWith("m:", StringComparison.Ordinal) ? $"{id[2..]}（大類別）" : id[2..];
+    /// <summary>今年沒有這個項目時（例如已刪除的關鍵字規則）退回由 Id 推得的名稱。</summary>
+    private string DisplayName(string id) =>
+        Items.FirstOrDefault(i => i.Id == id)?.DisplayName ?? id switch
+        {
+            _ when id.StartsWith("m:", StringComparison.Ordinal) => $"{id[2..]}（大類別）",
+            _ when id.StartsWith("k:", StringComparison.Ordinal) => "已刪除的關鍵字規則",
+            _ => id[2..],
+        };
 
     // localStorage 只是本機便利功能：讀寫失敗（例如私密視窗）就當作沒有存過。
     private async Task<string?[]?> LoadSavedSelectionAsync()

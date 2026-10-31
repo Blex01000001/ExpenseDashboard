@@ -1,3 +1,4 @@
+using ExpenseDashboard.Domain.Rules;
 using ExpenseDashboard.Domain.Transactions;
 
 namespace ExpenseDashboard.Domain.Reports;
@@ -42,16 +43,36 @@ public enum TrendItemKind
 {
     MajorCategory,
     Category,
+    /// <summary>備註關鍵字規則（<see cref="KeywordRule"/>）。</summary>
+    Keyword,
 }
 
 /// <summary>
-/// 可在趨勢折線圖上選擇的項目（大類別或類別）。<see cref="Monthly"/> 固定 12 筆（1–12 月），
+/// 可在趨勢折線圖上選擇的項目（大類別、類別或備註關鍵字規則）。<see cref="Monthly"/> 固定 12 筆（1–12 月），
 /// 規則同 <see cref="MonthValue"/>：未來月份為 null，沒花費的月份為 0。
 /// </summary>
 public sealed record TrendItem(TrendItemKind Kind, string Name, decimal YearTotal, IReadOnlyList<decimal?> Monthly)
 {
-    /// <summary>穩定的識別字串，用來記住使用者的選擇（例如 <c>c:運動</c>、<c>m:Diet</c>）。</summary>
-    public string Id => $"{(Kind == TrendItemKind.MajorCategory ? "m" : "c")}:{Name}";
+    /// <summary>關鍵字規則的資料庫 Id；其他種類為 null。</summary>
+    public int? RuleId { get; init; }
+
+    /// <summary>
+    /// 穩定的識別字串，用來記住使用者的選擇（例如 <c>c:運動</c>、<c>m:Diet</c>、<c>k:3</c>）。
+    /// 關鍵字規則用 Id 而不是名稱，改名後選擇仍然有效。
+    /// </summary>
+    public string Id => Kind switch
+    {
+        TrendItemKind.MajorCategory => $"m:{Name}",
+        TrendItemKind.Keyword => $"k:{RuleId}",
+        _ => $"c:{Name}",
+    };
+
+    public string DisplayName => Kind switch
+    {
+        TrendItemKind.MajorCategory => $"{Name}（大類別）",
+        TrendItemKind.Keyword => $"{Name}（備註）",
+        _ => Name,
+    };
 }
 
 /// <summary>
@@ -128,23 +149,43 @@ public static class DashboardCalculator
     }
 
     /// <summary>
-    /// 該年有支出的所有大類別與類別，各自附 12 個月的花費，依年度總額由大到小排序（大類別在前）。
+    /// 折線圖可選的項目，依序為：大類別、類別（皆只列該年有支出的，依年度總額由大到小）、
+    /// 備註關鍵字規則（全部列出，即使該年沒有符合的支出，依年度總額再依名稱排序）。
+    /// 各附 12 個月的花費。大類別只列 CSV 中真的有填大類別的；沒有大類別的類別在「類別」組已經有一模一樣的線。
     /// </summary>
-    public static IReadOnlyList<TrendItem> TrendItems(IEnumerable<Transaction> transactions, int year, DateOnly today)
+    public static IReadOnlyList<TrendItem> TrendItems(
+        IEnumerable<Transaction> transactions, int year, DateOnly today, IEnumerable<KeywordRule>? rules = null)
     {
         var inYear = Expenses(transactions).Where(t => t.Date.Year == year).ToList();
 
-        IEnumerable<TrendItem> ItemsBy(TrendItemKind kind, Func<Transaction, string> key) => inYear
+        IEnumerable<TrendItem> ItemsBy(TrendItemKind kind, IEnumerable<Transaction> source, Func<Transaction, string> key) => source
             .GroupBy(key, StringComparer.Ordinal)
             .Select(g => new TrendItem(kind, g.Key, g.Sum(t => t.Amount), MonthlySeries(g, year, today)))
             .Where(i => i.YearTotal > 0)
             .OrderByDescending(i => i.YearTotal)
             .ThenBy(i => i.Name, StringComparer.Ordinal);
 
-        return ItemsBy(TrendItemKind.MajorCategory, MajorCategoryName)
-            .Concat(ItemsBy(TrendItemKind.Category, CategoryName))
+        var keywordItems = (rules ?? [])
+            .Select(rule =>
+            {
+                var matched = inYear.Where(t => rule.Matches(t.Note)).ToList();
+                return new TrendItem(TrendItemKind.Keyword, rule.Name, matched.Sum(t => t.Amount), MonthlySeries(matched, year, today))
+                {
+                    RuleId = rule.Id,
+                };
+            })
+            .OrderByDescending(i => i.YearTotal)
+            .ThenBy(i => i.Name, StringComparer.Ordinal);
+
+        return ItemsBy(TrendItemKind.MajorCategory, inYear.Where(t => t.MajorCategory is not null), MajorCategoryName)
+            .Concat(ItemsBy(TrendItemKind.Category, inYear, CategoryName))
+            .Concat(keywordItems)
             .ToList();
     }
+
+    /// <summary>年度花費最多的前幾名大類別（依序），月卡片圓餅圖用它固定每個大類別的顏色。</summary>
+    public static IReadOnlyList<string> FeaturedMajorCategories(IEnumerable<Transaction> transactions, int year) =>
+        FeaturedMajorCategories(Expenses(transactions).Where(t => t.Date.Year == year));
 
     /// <summary>年度花費最多的前 <paramref name="count"/> 個類別（小分類），作為折線圖的預設選擇。</summary>
     public static IReadOnlyList<TrendItem> DefaultTrendItems(IReadOnlyList<TrendItem> items, int count = 3) =>
@@ -153,7 +194,8 @@ public static class DashboardCalculator
     private static IEnumerable<Transaction> Expenses(IEnumerable<Transaction> transactions) =>
         transactions.Where(t => t.Type == TransactionType.Expense);
 
-    private static string MajorCategoryName(Transaction t) => t.MajorCategory ?? UncategorizedName;
+    /// <summary>沒有大類別的類別（例如「運動」）直接用類別名稱當大類別，不全部擠進同一個「未分類」。</summary>
+    private static string MajorCategoryName(Transaction t) => t.MajorCategory ?? CategoryName(t);
 
     private static string CategoryName(Transaction t) => string.IsNullOrEmpty(t.Category) ? UncategorizedName : t.Category;
 

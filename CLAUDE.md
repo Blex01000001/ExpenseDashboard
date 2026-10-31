@@ -14,7 +14,7 @@
 ```
 ExpenseDashboard.slnx
 src/
-  ExpenseDashboard.Domain/   純領域邏輯：實體、CSV 解析、統計彙總。不得參考 EF Core 或 ASP.NET。
+  ExpenseDashboard.Domain/   純領域邏輯：實體、CSV 解析、統計彙總、備註關鍵字規則。不得參考 EF Core 或 ASP.NET。
   ExpenseDashboard.Web/      Blazor UI、DbContext（Data/）、migration（Data/Migrations/）、Program.cs
 tests/
   ExpenseDashboard.Tests/    xUnit，參考 Domain 與 Web
@@ -87,16 +87,24 @@ App 不同版本的匯出格式不同，兩種都要支援（範例皆為虛構�
 
 使用者的資料**只有支出、不會有收入**。儀表板只看支出；解析器仍接受「收」，但收入紀錄在所有彙總中都會被忽略。
 
+**沒有大類別的類別**（CSV 大類別欄為空，例如「運動」「ゲーム」）在大類別相關的彙總（圓餅圖、年度前 5 名）中，直接用類別名稱當大類別，不併成單一的「未分類」。`UncategorizedName` 只用在連類別都是空的罕見情況。
+
 - `Domain/Reports/DashboardCalculator`（純函式）：
   - `AnalyzeMonths(transactions, year, today)`：月卡片資料，範圍是該年**第一個到最後一個有支出的月份**（中間空月補 0）。每月有總額、筆數、日均、較上月、較去年同月（基準為 0 → `null`），以及圓餅圖用的大類別分布：只列**年度前 5 名大類別**（依年度排名順序），其餘併入「其他」，讓同一個大類別在每張卡片顏色一致。進行中的月份（`today` 所在月）日均只除到今天。
   - `SummarizeYear`：由月份結果彙總年度總額、筆數、月平均（除以統計月份數）、最高月份。
   - `MonthlyTotals`：每月花費長條圖，固定 1–12 月；`today` 之後的月份為 `null`（不畫），已過去沒花費的月份為 0。
-  - `TrendItems`：折線圖可選項目，大類別與類別兩組（`TrendItem.Id` 為 `m:名稱`／`c:名稱`），各附 12 個月金額，規則同上。`DefaultTrendItems` 取年度前 3 名類別。
+  - `TrendItems`：折線圖可選項目，依序為大類別（只列 CSV 真的有填大類別的，避免和類別組重複）、類別、備註關鍵字規則（全部列出，即使今年沒有符合）。`TrendItem.Id` 為 `m:名稱`／`c:名稱`／`k:規則Id`（規則用 Id，改名後選擇仍有效），各附 12 個月金額，規則同上。`DefaultTrendItems` 取年度前 3 名類別。
+  - `FeaturedMajorCategories`：年度前 5 名大類別，月卡片圓餅圖的固定配色依據。
 - `Web/Dashboard/DashboardService`：依 `DashboardFilter(Year, Currency)` 撈資料，**多撈前一整年**（較上月、較去年同月）；`today` 取自注入的 `TimeProvider`（測試用 `FixedTimeProvider`）。**不同貨幣不混算**，貨幣選單只在資料有多種貨幣時出現。
 - 版面由上而下：標題列（「記帳儀表板」＋年度選單，同一行）→ 年度花費卡 → `MonthlyTrendCard.razor`（每月花費長條＋折線）→ `MonthCard.razor`（一個月一張，新到舊）。
-  - 導覽是 `MainLayout` 左上角的固定懸浮按鈕；窄螢幕（≤720px）只顯示圖示，`main` 會讓出左側空間。
+  - 導覽是 `MainLayout` 左上角的固定懸浮按鈕（儀表板、匯入 CSV、備註關鍵字）；窄螢幕（≤720px）只顯示圖示，`main` 會讓出左側空間。
   - 折線圖：長條＝總花費（左軸）、折線＝所選項目（右軸，所有折線共用）。最多 5 項，顏色與線型綁在「欄位」上（移除一項不會讓其他項換色）；選擇存在瀏覽器 `localStorage`（`expense-dashboard.trend-items`），讀寫失敗就用預設。圖表圖例關閉，由上方的項目標籤代替。
   - 月卡片：總額、較上月、較去年同月（`ChangeBadge.razor`）、日均、大類別甜甜圈圖（中間顯示總額）。
+- **備註關鍵字規則**（`Domain/Rules/KeywordRule`，存在 `KeywordRules` 資料表，`Keywords` 為 EF primitive collection）：
+  - 備註「包含」任一關鍵字即符合，不分大小寫；只比對備註，不比對標籤。
+  - 只在統計時比對、不寫回交易，修改規則立刻套用到全部資料。
+  - **只用在折線圖**，不進圓餅圖：同一筆支出會同時算在原本的類別和關鍵字項目，加總不等於總額。
+  - 設定頁 `/keywords`（`KeywordRules.razor` + `Web/Rules/KeywordRuleService`）：新增／編輯／刪除，名稱唯一，顯示全部年份、全部貨幣的符合筆數與金額。
 - Blazor-ApexCharts 注意事項：
   - **每張圖要有自己的 `ApexChartOptions` 實例**，共用會讓其中一張畫不出來。
   - Interactive Server 下 `FormatYAxisLabel` 等 C# 委派不支援，格式化改用 options 裡的 JS 字串（`Formatter = "function (value) { ... }"`）。

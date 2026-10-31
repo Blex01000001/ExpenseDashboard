@@ -1,0 +1,156 @@
+@page "/keywords"
+@using ExpenseDashboard.Domain.Rules
+@using ExpenseDashboard.Web.Rules
+@inject KeywordRuleService Rules
+
+<PageTitle>備註關鍵字</PageTitle>
+
+<div class="page-header">
+    <h1>備註關鍵字</h1>
+</div>
+
+<p class="muted">
+    備註包含任一關鍵字（不分大小寫）的支出，會算進這個項目，可以在儀表板的「每月花費」圖加成折線。
+    修改後立刻套用到全部資料，不用重新匯入。
+</p>
+
+<section class="card rule-form" aria-label="@(editingId is null ? "新增規則" : "編輯規則")">
+    <h2>@(editingId is null ? "新增規則" : "編輯規則")</h2>
+    <label>
+        名稱
+        <input @bind="name" maxlength="@KeywordRule.MaxNameLength" placeholder="例如：Steam 遊戲" />
+    </label>
+    <label>
+        關鍵字（每行一個，或用逗號、頓號分隔）
+        <textarea @bind="keywords" rows="3" placeholder="例如：Steam、BA"></textarea>
+    </label>
+    @if (errors.Count > 0)
+    {
+        <ul class="form-errors">
+            @foreach (var error in errors)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    }
+    <div class="form-actions">
+        <button type="button" class="btn-primary" @onclick="SaveAsync" disabled="@isBusy">@(editingId is null ? "新增" : "儲存")</button>
+        @if (editingId is not null)
+        {
+            <button type="button" @onclick="ResetForm" disabled="@isBusy">取消</button>
+        }
+    </div>
+</section>
+
+@if (summaries is null)
+{
+    <p>載入中…</p>
+}
+else if (summaries.Count == 0)
+{
+    <p class="muted">還沒有任何規則。</p>
+}
+else
+{
+    <section class="card" aria-label="規則列表">
+        <table class="rule-table">
+            <thead>
+                <tr><th>名稱</th><th>關鍵字</th><th>符合筆數</th><th>符合金額</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var summary in summaries)
+                {
+                    var rule = summary.Rule;
+                    <tr>
+                        <td>@rule.Name</td>
+                        <td>@string.Join("、", rule.Keywords)</td>
+                        <td class="num" data-label="符合筆數">@summary.MatchCount.ToString("N0")</td>
+                        <td class="num" data-label="符合金額">@summary.MatchTotal.ToString("#,0")</td>
+                        <td class="row-actions">
+                            <button type="button" @onclick="() => Edit(rule)" disabled="@isBusy">編輯</button>
+                            @if (confirmDeleteId == rule.Id)
+                            {
+                                <button type="button" class="btn-danger" @onclick="() => DeleteAsync(rule.Id)" disabled="@isBusy">確定刪除</button>
+                                <button type="button" @onclick="() => confirmDeleteId = null">取消</button>
+                            }
+                            else
+                            {
+                                <button type="button" @onclick="() => confirmDeleteId = rule.Id" disabled="@isBusy">刪除</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p class="muted table-note">符合筆數與金額為全部年份、全部貨幣的支出。</p>
+    </section>
+}
+
+@code {
+    private IReadOnlyList<KeywordRuleSummary>? summaries;
+    private int? editingId;
+    private int? confirmDeleteId;
+    private string? name;
+    private string? keywords;
+    private IReadOnlyList<string> errors = [];
+    private bool isBusy;
+
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    private async Task ReloadAsync() => summaries = await Rules.ListAsync();
+
+    private void Edit(KeywordRule rule)
+    {
+        editingId = rule.Id;
+        name = rule.Name;
+        keywords = string.Join("\n", rule.Keywords);
+        errors = [];
+        confirmDeleteId = null;
+    }
+
+    private void ResetForm()
+    {
+        editingId = null;
+        name = null;
+        keywords = null;
+        errors = [];
+    }
+
+    private async Task SaveAsync()
+    {
+        isBusy = true;
+        try
+        {
+            var result = await Rules.SaveAsync(editingId, name, keywords);
+            errors = result.Errors;
+            if (result.Succeeded)
+            {
+                ResetForm();
+                await ReloadAsync();
+            }
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task DeleteAsync(int id)
+    {
+        isBusy = true;
+        try
+        {
+            await Rules.DeleteAsync(id);
+            confirmDeleteId = null;
+            if (editingId == id)
+            {
+                ResetForm();
+            }
+            await ReloadAsync();
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}

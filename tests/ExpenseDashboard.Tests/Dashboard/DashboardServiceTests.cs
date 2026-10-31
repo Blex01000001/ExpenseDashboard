@@ -1,4 +1,5 @@
 using ExpenseDashboard.Domain.Reports;
+using ExpenseDashboard.Domain.Rules;
 using ExpenseDashboard.Domain.Transactions;
 using ExpenseDashboard.Tests.Data;
 using ExpenseDashboard.Web.Dashboard;
@@ -89,6 +90,26 @@ public class DashboardServiceTests
     }
 
     [Fact]
+    public async Task Keyword_rules_become_trend_items()
+    {
+        using var database = await SeedAsync(
+            New(new DateOnly(2025, 1, 1), 300m, category: "ゲーム", majorCategory: null, note: "Steam 特價"),
+            New(new DateOnly(2025, 1, 2), 100m, category: "晚餐"));
+        await using (var db = database.CreateDbContext())
+        {
+            db.KeywordRules.Add(new KeywordRule { Name = "遊戲", Keywords = ["steam"] });
+            await db.SaveChangesAsync();
+        }
+
+        var data = await CreateService(database).LoadAsync(new DashboardFilter(2025, "TWD"));
+
+        var keyword = Assert.Single(data.TrendItems, i => i.Kind == TrendItemKind.Keyword);
+        Assert.Equal("遊戲", keyword.Name);
+        Assert.Equal(300m, keyword.YearTotal);
+        Assert.Equal(["ゲーム", "Diet"], data.FeaturedMajorCategories);
+    }
+
+    [Fact]
     public async Task Current_month_daily_average_uses_the_clock()
     {
         using var database = await SeedAsync(New(new DateOnly(2025, 10, 1), 500m));
@@ -159,7 +180,8 @@ public class DashboardServiceTests
         string currency = "TWD",
         string category = "午餐",
         string? majorCategory = "Diet",
-        TransactionType type = TransactionType.Expense) => new()
+        TransactionType type = TransactionType.Expense,
+        string? note = null) => new()
     {
         ExternalId = Guid.NewGuid(),
         Date = date,
@@ -169,6 +191,7 @@ public class DashboardServiceTests
         Currency = currency,
         Member = "自己",
         Account = "現金",
+        Note = note,
         Type = type,
         UpdatedAt = new DateTime(2025, 1, 4, 12, 0, 0),
     };

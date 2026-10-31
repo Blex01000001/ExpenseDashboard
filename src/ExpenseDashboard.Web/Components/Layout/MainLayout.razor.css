@@ -21,7 +21,7 @@
 
 /* 左上角固定的懸浮導覽按鈕；寬螢幕顯示圖示＋文字，窄螢幕只剩圖示。 */
 .fab-nav {
-    --fab-width: 7.5rem;
+    --fab-width: 8.5rem;
     position: fixed;
     top: 0.75rem;
     left: 0.75rem;
@@ -44,6 +44,7 @@
         color: var(--text-secondary);
         text-decoration: none;
         font-size: 0.875rem;
+        white-space: nowrap;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
     }
 
@@ -74,7 +75,7 @@ main {
     box-sizing: border-box;
     max-width: calc(72rem + 2rem);
     padding: 0.75rem 1rem 2rem;
-    margin-left: max(8.75rem, calc((100% - 74rem) / 2));
+    margin-left: max(9.75rem, calc((100% - 74rem) / 2));
     margin-right: auto;
 }
 

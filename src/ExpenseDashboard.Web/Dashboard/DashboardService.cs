@@ -59,19 +59,16 @@ public class DashboardService(IDbContextFactory<ExpenseDbContext> dbFactory, Tim
                         && t.Date <= to)
             .ToListAsync(cancellationToken);
 
+        var rules = await db.KeywordRules.AsNoTracking().ToListAsync(cancellationToken);
+
         var today = DateOnly.FromDateTime(timeProvider.GetLocalNow().DateTime);
         var months = DashboardCalculator.AnalyzeMonths(transactions, filter.Year, today);
-        var trendItems = DashboardCalculator.TrendItems(transactions, filter.Year, today);
 
         return new DashboardData(
             DashboardCalculator.SummarizeYear(filter.Year, months),
             months,
             DashboardCalculator.MonthlyTotals(transactions, filter.Year, today),
-            trendItems,
-            trendItems
-                .Where(i => i.Kind == TrendItemKind.MajorCategory)
-                .Take(DashboardCalculator.FeaturedMajorCategoryCount)
-                .Select(i => i.Name)
-                .ToList());
+            DashboardCalculator.TrendItems(transactions, filter.Year, today, rules),
+            DashboardCalculator.FeaturedMajorCategories(transactions, filter.Year));
     }
 }
