@@ -343,6 +343,32 @@ button {
         }
 }
 
+.sync-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+    .sync-option input {
+        margin-top: 0.2rem;
+    }
+
+.delete-preview {
+    margin-top: 1rem;
+}
+
+    .delete-preview h2 {
+        margin: 0 0 0.25rem;
+        font-size: 1rem;
+    }
+
+    .delete-preview .form-actions {
+        margin-top: 0.75rem;
+    }
+
 .chart-note {
     margin: 0;
     font-size: 0.75rem;

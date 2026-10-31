@@ -42,4 +42,20 @@ public class Transaction
 
     /// <summary>CSV「上次更新」欄（yyyy-MM-dd HH:mm:ss，本地時間）。</summary>
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>
+    /// 匯出內容（不含 <see cref="Id"/>、<see cref="ExternalId"/>、<see cref="UpdatedAt"/>）是否完全相同。
+    /// 用來判斷「上次更新」沒變、內容卻變了的紀錄（例如 App 改了類別名稱）。
+    /// </summary>
+    public bool HasSameContent(Transaction other) =>
+        Date == other.Date
+        && Category == other.Category
+        && MajorCategory == other.MajorCategory
+        && Amount == other.Amount
+        && Currency == other.Currency
+        && Member == other.Member
+        && Account == other.Account
+        && Note == other.Note
+        && Tags == other.Tags
+        && Type == other.Type;
 }

@@ -78,10 +78,14 @@ App 不同版本的匯出格式不同，兩種都要支援（範例皆為虛構�
 1. `Import.razor`（`/import`）用 `InputFile` 讀檔（上限 20 MB），先複製到 `MemoryStream`，再以 `StreamReader`（自動去 BOM）交給解析器。
 2. `Domain/Import/DailyExpenseCsvParser.Parse(TextReader)`：依**標題名稱**對應欄位（順序無關），底層用 `CsvReader`（RFC 4180）。格式錯誤的列會略過，並以 `CsvImportError(行號, 訊息)` 回報；標題缺欄位則整份不解析。行號是該列在檔案中的起始行（多行備註會被計入）。
 3. `Web/Import/TransactionImporter.ImportAsync`：以 UUID upsert，回傳 `ImportSummary(Added, Updated, Unchanged)`。
-   - 新 UUID → 新增；既有且「上次更新」較新 → 覆寫；否則不變。
+   - 新 UUID → 新增；既有且「上次更新」**較新** → 覆寫；「上次更新」**相同但內容不同**（`Transaction.HasSameContent`）→ 也覆寫；較舊 → 不動（避免舊匯出檔蓋回新資料）。
+   - 使用者已實測：在 App 修改舊紀錄（含改類別）時「上次更新」會跟著變。
    - 同一檔內重複 UUID 取「上次更新」最新的那筆。
-   - 匯出檔中沒出現的既有資料**不刪除**（App 端刪除的紀錄不會同步）。
    - 既有資料以每批 500 個 UUID 查詢，避免 SQLite 參數上限。
+4. **同步刪除**（匯入頁勾選「同步刪除」才做，預設關閉）：
+   - `FindMissingAsync`：只找匯出檔**日期範圍內**（檔案最早到最晚的日期，含兩端）、資料庫有但檔案沒有的紀錄；範圍外一律不碰，只匯出部分期間也不會誤刪。
+   - 先列出預覽（最多顯示 100 筆），使用者按「確定刪除」才呼叫 `DeleteAsync`，且只刪預覽列出的那些 Id。
+   - 檔案有任何無法解析的列時**不做刪除檢查**（那些列的 UUID 未知，會被誤判成已刪除）。
 
 ## 儀表板
 

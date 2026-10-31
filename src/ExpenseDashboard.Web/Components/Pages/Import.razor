@@ -1,6 +1,7 @@
 @page "/import"
 @using System.Text
 @using ExpenseDashboard.Domain.Import
+@using ExpenseDashboard.Domain.Transactions
 @using ExpenseDashboard.Web.Import
 @inject TransactionImporter Importer
 @inject ILogger<Import> Logger
@@ -11,7 +12,12 @@
     <h1>匯入 CSV</h1>
 </div>
 
-<p>選擇「天天記帳」匯出的 CSV 檔。重複匯入同一份檔案不會產生重複資料。</p>
+<p>選擇「天天記帳」匯出的 CSV 檔。重複匯入同一份檔案不會產生重複資料；在 App 修改過的紀錄會自動更新。</p>
+
+<label class="sync-option">
+    <input type="checkbox" @bind="syncDeletes" disabled="@isImporting" />
+    同步刪除：找出匯出檔日期範圍內、但檔案中已經沒有的紀錄（在 App 裡刪掉的），確認後再刪除
+</label>
 
 <InputFile OnChange="OnFileSelected" accept=".csv,text/csv" disabled="@isImporting" />
 
@@ -32,6 +38,43 @@
     </p>
 }
 
+@if (syncNotice is not null)
+{
+    <p class="muted">@syncNotice</p>
+}
+
+@if (missing is { Count: > 0 })
+{
+    <section class="card delete-preview" aria-label="待刪除紀錄">
+        <h2>以下 @missing.Count 筆在 @rangeText 之間，但匯出檔中已經沒有</h2>
+        <p class="muted">通常是在 App 裡刪掉的紀錄。按「確定刪除」才會從儀表板的資料庫刪除。</p>
+        <table class="rule-table">
+            <thead>
+                <tr><th>日期</th><th>類別</th><th>金額</th><th>備註</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var t in missing.Take(PreviewLimit))
+                {
+                    <tr>
+                        <td>@t.Date.ToString("yyyy/MM/dd")</td>
+                        <td>@t.Category</td>
+                        <td class="num" data-label="金額">@t.Amount.ToString("#,0.##") @t.Currency</td>
+                        <td>@t.Note</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        @if (missing.Count > PreviewLimit)
+        {
+            <p class="muted table-note">…還有 @(missing.Count - PreviewLimit) 筆。</p>
+        }
+        <div class="form-actions">
+            <button type="button" class="btn-danger" @onclick="ConfirmDeleteAsync" disabled="@isImporting">確定刪除 @missing.Count 筆</button>
+            <button type="button" @onclick="CancelDelete" disabled="@isImporting">不要刪除</button>
+        </div>
+    </section>
+}
+
 @if (errors.Count > 0)
 {
     <p class="import-failure">
@@ -47,12 +90,17 @@
 
 @code {
     private const long MaxFileSize = 20 * 1024 * 1024;
+    private const int PreviewLimit = 100;
 
     private bool isImporting;
     private string? fileName;
     private string? failure;
     private ImportSummary? summary;
     private IReadOnlyList<CsvImportError> errors = [];
+    private bool syncDeletes;
+    private IReadOnlyList<Transaction>? missing;
+    private string? rangeText;
+    private string? syncNotice;
 
     private async Task OnFileSelected(InputFileChangeEventArgs e)
     {
@@ -61,6 +109,8 @@
         failure = null;
         summary = null;
         errors = [];
+        missing = null;
+        syncNotice = null;
 
         try
         {
@@ -85,6 +135,10 @@
             if (result.Transactions.Count > 0)
             {
                 summary = await Importer.ImportAsync(result.Transactions);
+                if (syncDeletes)
+                {
+                    await PreviewMissingAsync(result);
+                }
             }
             else if (errors.Count == 0)
             {
@@ -100,5 +154,55 @@
         {
             isImporting = false;
         }
+    }
+
+    private async Task PreviewMissingAsync(CsvParseResult result)
+    {
+        // 解析失敗的列不知道 UUID，會被誤判成「已刪除」，所以這種情況不做刪除檢查。
+        if (result.Errors.Count > 0)
+        {
+            syncNotice = "檔案中有無法解析的列，為避免誤刪，這次沒有檢查要刪除的紀錄。";
+            return;
+        }
+
+        var from = result.Transactions.Min(t => t.Date);
+        var to = result.Transactions.Max(t => t.Date);
+        rangeText = $"{from:yyyy/MM/dd}–{to:yyyy/MM/dd}";
+        missing = await Importer.FindMissingAsync(result.Transactions);
+        if (missing.Count == 0)
+        {
+            syncNotice = $"{rangeText} 之間沒有需要刪除的紀錄。";
+        }
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (missing is null)
+        {
+            return;
+        }
+
+        isImporting = true;
+        try
+        {
+            var deleted = await Importer.DeleteAsync(missing.Select(t => t.Id).ToList());
+            syncNotice = $"已刪除 {deleted} 筆。";
+            missing = null;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to delete missing transactions");
+            failure = "刪除失敗，資料沒有變更。";
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    private void CancelDelete()
+    {
+        syncNotice = $"沒有刪除任何紀錄（{missing?.Count ?? 0} 筆保留）。";
+        missing = null;
     }
 }
