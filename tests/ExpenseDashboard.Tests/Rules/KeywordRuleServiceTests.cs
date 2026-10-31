@@ -29,6 +29,35 @@ public class KeywordRuleServiceTests
     }
 
     [Fact]
+    public async Task GetMatches_lists_matching_expenses_newest_first_with_match_position()
+    {
+        using var database = new SqliteTestDatabase();
+        await SeedAsync(database,
+            Expense(100m, "BA 課金", date: new DateOnly(2025, 1, 2)),
+            Expense(300m, "linebank 轉帳", date: new DateOnly(2025, 1, 3)),
+            Expense(200m, "買BA石頭", date: new DateOnly(2025, 2, 1)),
+            Expense(999m, "BA 退款", TransactionType.Income));
+        var service = new KeywordRuleService(database);
+        await service.SaveAsync(null, "遊戲", "BA");
+        var id = (await service.ListAsync())[0].Rule.Id;
+
+        var matches = await service.GetMatchesAsync(id);
+
+        Assert.Equal([new DateOnly(2025, 2, 1), new DateOnly(2025, 1, 2)], matches.Select(m => m.Date));
+        Assert.Equal(200m, matches[0].Amount);
+        Assert.Equal(("買BA石頭", 1, 2), (matches[0].Note, matches[0].MatchIndex, matches[0].MatchLength));
+        Assert.Equal(300m, (await service.ListAsync())[0].MatchTotal);
+    }
+
+    [Fact]
+    public async Task GetMatches_of_unknown_rule_is_empty()
+    {
+        using var database = new SqliteTestDatabase();
+
+        Assert.Empty(await new KeywordRuleService(database).GetMatchesAsync(42));
+    }
+
+    [Fact]
     public async Task Invalid_input_is_rejected_without_saving()
     {
         using var database = new SqliteTestDatabase();
@@ -102,10 +131,11 @@ public class KeywordRuleServiceTests
         await db.SaveChangesAsync();
     }
 
-    private static Transaction Expense(decimal amount, string? note, TransactionType type = TransactionType.Expense) => new()
+    private static Transaction Expense(
+        decimal amount, string? note, TransactionType type = TransactionType.Expense, DateOnly? date = null) => new()
     {
         ExternalId = Guid.NewGuid(),
-        Date = new DateOnly(2025, 1, 4),
+        Date = date ?? new DateOnly(2025, 1, 4),
         Category = "ゲーム",
         Amount = amount,
         Currency = "TWD",

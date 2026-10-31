@@ -10,37 +10,9 @@
 </div>
 
 <p class="muted">
-    備註包含任一關鍵字（不分大小寫）的支出，會算進這個項目，可以在儀表板的「每月花費」圖加成折線。
-    修改後立刻套用到全部資料，不用重新匯入。
+    備註符合任一關鍵字（不分大小寫）的支出，會算進這個項目，可以在儀表板的「每月花費」圖加成折線。
+    修改後立刻套用到全部資料，不用重新匯入。點列表中的規則可以展開符合的紀錄。
 </p>
-
-<section class="card rule-form" aria-label="@(editingId is null ? "新增規則" : "編輯規則")">
-    <h2>@(editingId is null ? "新增規則" : "編輯規則")</h2>
-    <label>
-        名稱
-        <input @bind="name" maxlength="@KeywordRule.MaxNameLength" placeholder="例如：Steam 遊戲" />
-    </label>
-    <label>
-        關鍵字（每行一個，或用逗號、頓號分隔）
-        <textarea @bind="keywords" rows="3" placeholder="例如：Steam、BA"></textarea>
-    </label>
-    @if (errors.Count > 0)
-    {
-        <ul class="form-errors">
-            @foreach (var error in errors)
-            {
-                <li>@error</li>
-            }
-        </ul>
-    }
-    <div class="form-actions">
-        <button type="button" class="btn-primary" @onclick="SaveAsync" disabled="@isBusy">@(editingId is null ? "新增" : "儲存")</button>
-        @if (editingId is not null)
-        {
-            <button type="button" @onclick="ResetForm" disabled="@isBusy">取消</button>
-        }
-    </div>
-</section>
 
 @if (summaries is null)
 {
@@ -61,13 +33,21 @@ else
                 @foreach (var summary in summaries)
                 {
                     var rule = summary.Rule;
-                    <tr>
-                        <td>@rule.Name</td>
+                    var expanded = expandedId == rule.Id;
+                    <tr class="rule-row @(expanded ? "expanded" : null)" @onclick="() => ToggleAsync(rule.Id)">
+                        <td>
+                            <button type="button" class="rule-toggle" aria-expanded="@(expanded ? "true" : "false")"
+                                    @onclick="() => ToggleAsync(rule.Id)" @onclick:stopPropagation>
+                                <span class="rule-caret" aria-hidden="true">@(expanded ? "▾" : "▸")</span>
+                                @rule.Name
+                            </button>
+                        </td>
                         <td>@string.Join("、", rule.Keywords)</td>
                         <td class="num" data-label="符合筆數">@summary.MatchCount.ToString("N0")</td>
                         <td class="num" data-label="符合金額">@summary.MatchTotal.ToString("#,0")</td>
-                        <td class="row-actions">
-                            <button type="button" @onclick="() => Edit(rule)" disabled="@isBusy">編輯</button>
+                        <td class="actions-cell" @onclick:stopPropagation>
+                            <div class="row-actions">
+                            <button type="button" @onclick="() => EditAsync(rule)" disabled="@isBusy">編輯</button>
                             @if (confirmDeleteId == rule.Id)
                             {
                                 <button type="button" class="btn-danger" @onclick="() => DeleteAsync(rule.Id)" disabled="@isBusy">確定刪除</button>
@@ -75,10 +55,49 @@ else
                             }
                             else
                             {
-                                <button type="button" @onclick="() => confirmDeleteId = rule.Id" disabled="@isBusy">刪除</button>
+                                <button type="button" class="btn-danger" @onclick="() => confirmDeleteId = rule.Id" disabled="@isBusy">刪除</button>
                             }
+                            </div>
                         </td>
                     </tr>
+                    @if (expanded)
+                    {
+                        <tr class="rule-detail">
+                            <td colspan="5">
+                                @if (matches is null)
+                                {
+                                    <p class="muted">載入中…</p>
+                                }
+                                else if (matches.Count == 0)
+                                {
+                                    <p class="muted">目前沒有符合的紀錄。</p>
+                                }
+                                else
+                                {
+                                    <table class="match-table">
+                                        <thead>
+                                            <tr><th>日期</th><th>金額</th><th>類別</th><th>備註（標示符合處）</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var m in matches.Take(MatchLimit))
+                                            {
+                                                <tr>
+                                                    <td>@m.Date.ToString("yyyy/MM/dd")</td>
+                                                    <td class="num">@m.Amount.ToString("#,0.##") @m.Currency</td>
+                                                    <td>@m.Category</td>
+                                                    <td>@m.Note[..m.MatchIndex]<mark>@m.Note.Substring(m.MatchIndex, m.MatchLength)</mark>@m.Note[(m.MatchIndex + m.MatchLength)..]</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                    @if (matches.Count > MatchLimit)
+                                    {
+                                        <p class="muted table-note">只顯示最近 @MatchLimit 筆，還有 @(matches.Count - MatchLimit) 筆。</p>
+                                    }
+                                }
+                            </td>
+                        </tr>
+                    }
                 }
             </tbody>
         </table>
@@ -86,8 +105,45 @@ else
     </section>
 }
 
+<section class="card rule-form" aria-label="@(editingId is null ? "新增規則" : "編輯規則")">
+    <h2>@(editingId is null ? "新增規則" : "編輯規則")</h2>
+    <label>
+        名稱
+        <input @ref="nameInput" @bind="name" maxlength="@KeywordRule.MaxNameLength" placeholder="例如：Steam 遊戲" />
+    </label>
+    <label>
+        關鍵字（每行一個，或用逗號、頓號分隔）
+        <textarea @bind="keywords" rows="3" placeholder="例如：Steam、BA"></textarea>
+    </label>
+    <p class="muted form-hint">
+        英文或數字關鍵字只比對「整個字」：BA 符合「BA 課金」「BA課金」，不符合「linebank」。
+        要讓它也符合字的一部分，在該側加 <code>*</code>，例如 <code>*GPT</code> 會符合「ChatGPT」。
+    </p>
+    @if (errors.Count > 0)
+    {
+        <ul class="form-errors">
+            @foreach (var error in errors)
+            {
+                <li>@error</li>
+            }
+        </ul>
+    }
+    <div class="form-actions">
+        <button type="button" class="btn-primary" @onclick="SaveAsync" disabled="@isBusy">@(editingId is null ? "新增" : "儲存")</button>
+        @if (editingId is not null)
+        {
+            <button type="button" @onclick="ResetForm" disabled="@isBusy">取消</button>
+        }
+    </div>
+</section>
+
 @code {
+    private const int MatchLimit = 200;
+
     private IReadOnlyList<KeywordRuleSummary>? summaries;
+    private int? expandedId;
+    private IReadOnlyList<KeywordMatch>? matches;
+    private ElementReference nameInput;
     private int? editingId;
     private int? confirmDeleteId;
     private string? name;
@@ -97,15 +153,40 @@ else
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
-    private async Task ReloadAsync() => summaries = await Rules.ListAsync();
+    private async Task ReloadAsync()
+    {
+        summaries = await Rules.ListAsync();
+        // 規則改了，展開中的明細也要重算。
+        if (expandedId is int id)
+        {
+            matches = await Rules.GetMatchesAsync(id);
+        }
+    }
 
-    private void Edit(KeywordRule rule)
+    private async Task ToggleAsync(int id)
+    {
+        if (expandedId == id)
+        {
+            expandedId = null;
+            matches = null;
+            return;
+        }
+
+        expandedId = id;
+        matches = null;
+        matches = await Rules.GetMatchesAsync(id);
+    }
+
+    // 表單在列表下方：按「編輯」後把游標移到名稱欄，瀏覽器會順便捲到表單。
+    private async Task EditAsync(KeywordRule rule)
     {
         editingId = rule.Id;
         name = rule.Name;
         keywords = string.Join("\n", rule.Keywords);
         errors = [];
         confirmDeleteId = null;
+        StateHasChanged();
+        await nameInput.FocusAsync();
     }
 
     private void ResetForm()
@@ -145,6 +226,11 @@ else
             if (editingId == id)
             {
                 ResetForm();
+            }
+            if (expandedId == id)
+            {
+                expandedId = null;
+                matches = null;
             }
             await ReloadAsync();
         }

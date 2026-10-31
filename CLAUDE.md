@@ -105,10 +105,11 @@ App 不同版本的匯出格式不同，兩種都要支援（範例皆為虛構�
   - 折線圖：長條＝總花費（左軸）、折線＝所選項目（右軸，所有折線共用）。最多 5 項，顏色與線型綁在「欄位」上（移除一項不會讓其他項換色）；選擇存在瀏覽器 `localStorage`（`expense-dashboard.trend-items`），讀寫失敗就用預設。圖表圖例關閉，由上方的項目標籤代替。
   - 月卡片：總額、較上月、較去年同月（`ChangeBadge.razor`）、日均、大類別甜甜圈圖（中間顯示總額）。
 - **備註關鍵字規則**（`Domain/Rules/KeywordRule`，存在 `KeywordRules` 資料表，`Keywords` 為 EF primitive collection）：
-  - 備註「包含」任一關鍵字即符合，不分大小寫；只比對備註，不比對標籤。
+  - 備註符合任一關鍵字即算，不分大小寫；只比對備註，不比對標籤。
+  - **英數字關鍵字只比對整個字**：關鍵字開頭／結尾是英文字母或數字時，該側前後不能緊接其他英數字（`BA` 符合「BA 課金」「BA課金」，不符合「linebank」）。中文沒有字邊界，照樣「包含」比對。關鍵字前後加 `*` 取消該側限制（`*GPT` 符合「ChatGPT」）。實作在 `KeywordRule.FindMatch`，回傳符合位置供畫面標示。
   - 只在統計時比對、不寫回交易，修改規則立刻套用到全部資料。
   - **只用在折線圖**，不進圓餅圖：同一筆支出會同時算在原本的類別和關鍵字項目，加總不等於總額。
-  - 設定頁 `/keywords`（`KeywordRules.razor` + `Web/Rules/KeywordRuleService`）：新增／編輯／刪除，名稱唯一，顯示全部年份、全部貨幣的符合筆數與金額。
+  - 設定頁 `/keywords`（`KeywordRules.razor` + `Web/Rules/KeywordRuleService`）：規則列表在上、新增／編輯表單在下（按「編輯」會把焦點移到表單）。名稱唯一，列表顯示全部年份、全部貨幣的符合筆數與金額；點一列展開符合的紀錄（`GetMatchesAsync`，日期、金額、類別、備註並標示符合處，最多顯示 200 筆）。刪除按鈕為紅底白字（`.btn-danger`，`--danger-solid`）。
 - Blazor-ApexCharts 注意事項：
   - **每張圖要有自己的 `ApexChartOptions` 實例**，共用會讓其中一張畫不出來。
   - Interactive Server 下 `FormatYAxisLabel` 等 C# 委派不支援，格式化改用 options 裡的 JS 字串（`Formatter = "function (value) { ... }"`）。
