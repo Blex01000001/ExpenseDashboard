@@ -3,6 +3,12 @@
 @using ExpenseDashboard.Web.Dashboard
 @inject DashboardService Dashboard
 @inject TimeProvider Clock
+@*
+    儀表板首頁。版面由上而下（使用者指定，不要調換）：
+    標題列（「記帳儀表板」＋年度選單同一行；貨幣選單只在資料有多種貨幣時出現）→ 年度花費卡（含較去年同期）
+    → MonthlyTrendCard（每月花費）→ MonthCard（一個月一張，新到舊）。
+    年度預設最新一年；篩選改變時靠 @key 讓圖表與卡片重建。
+*@
 
 <PageTitle>記帳儀表板</PageTitle>
 

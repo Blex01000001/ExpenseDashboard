@@ -1,4 +1,8 @@
 @using ExpenseDashboard.Domain.Reports
+@*
+    單月卡片：總額、較上月、較去年同月、日均、大類別甜甜圈圖。
+    甜甜圈顏色依 FeaturedMajorCategories（年度前 5 名）的順序固定，讓同一個大類別在每張卡片都是同一個顏色。
+*@
 
 <article class="card month-card" aria-label="@Month.Year 年 @Month.Month 月花費">
     <header class="month-card-header">

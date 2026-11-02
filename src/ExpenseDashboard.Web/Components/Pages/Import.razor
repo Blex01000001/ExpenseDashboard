@@ -5,6 +5,10 @@
 @using ExpenseDashboard.Web.Import
 @inject TransactionImporter Importer
 @inject ILogger<Import> Logger
+@*
+    匯入頁：解析 → upsert（列出被更新紀錄的欄位變動）→（勾選「同步刪除」時）預覽匯出檔日期範圍內已不存在的紀錄，
+    使用者按「確定刪除」才刪。規則細節見 TransactionImporter。
+*@
 
 <PageTitle>匯入 CSV</PageTitle>
 

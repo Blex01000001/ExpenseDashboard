@@ -1,6 +1,13 @@
 @using System.Text.Json
 @using ExpenseDashboard.Domain.Reports
 @inject IJSRuntime JS
+@*
+    「每月花費」圖：長條＝1–12 月總花費（左軸），折線＝使用者選的項目（右軸，所有折線共用）。
+    - 項目分三組：大類別、類別、備註關鍵字（k:規則Id），最多 MaxItems 項。
+    - 顏色與虛線樣式綁在「欄位」(slot) 上，移除一項不會讓其他項換色；超過 3 條時色盲靠虛線分辨。
+    - 選擇存在 localStorage（StorageKey），讀寫失敗就用 DefaultItems；因為 prerender 時沒有 JS，選擇在第一次 render 後才載入。
+    - 圖表內建圖例關閉，由上方的項目標籤（chip）代替。
+*@
 
 <section class="card chart-card" aria-label="每月花費">
     <h2>每月花費</h2>
