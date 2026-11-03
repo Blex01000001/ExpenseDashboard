@@ -1,0 +1,13 @@
+/* 增減：花得比較多 ▲ 紅、比較少 ▼ 綠。 */
+
+.change-up {
+    color: var(--change-up);
+}
+
+.change-down {
+    color: var(--change-down);
+}
+
+.change-none {
+    color: var(--text-muted);
+}

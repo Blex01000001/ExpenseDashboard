@@ -1,0 +1,45 @@
+/* 備註關鍵字：規則表單（規則表格共用樣式在 app.css）。 */
+
+.rule-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-width: 32rem;
+}
+
+    .rule-form h2 {
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    .rule-form label {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+    }
+
+    .rule-form textarea {
+        resize: vertical;
+    }
+
+.form-errors {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--danger);
+    font-size: 0.875rem;
+}
+
+.form-hint {
+    margin: 0;
+    font-size: 0.8125rem;
+}
+
+    .form-hint code {
+        color: var(--text-primary);
+    }
+
+.rule-form {
+    margin-top: 1rem;
+}

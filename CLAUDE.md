@@ -21,7 +21,7 @@
 | `Components/Pages/MonthlyTrendCard.razor`、`MonthCard.razor`、`ChangeBadge.razor`；`Components/ChartTheme.cs` | 每月花費圖、月卡片、▲▼ 增減；圖表色票與格式化 | 圖表 |
 | `Components/Pages/Import.razor`、`KeywordRules.razor`、`Tags.razor` | 匯入頁、`/keywords`、`/tags` | — |
 | `Components/Layout/MainLayout.razor`(+`.css`) | 左上懸浮導覽、錯誤提示列、`main` 讓位 | 新頁面要加導覽按鈕 |
-| `src/ExpenseDashboard.Web/wwwroot/app.css` | 色彩 token（`:root`）與所有頁面樣式 | — |
+| `src/ExpenseDashboard.Web/wwwroot/app.css`；`Components/**/X.razor.css` | 全站：token（`:root`）、基本元素、卡片、按鈕、三頁共用的規則／明細表格；元件專屬樣式放各自的 scoped CSS | 樣式子元件要用 `::deep` |
 | `tests/ExpenseDashboard.Tests/` | `Import/`、`Reports/`、`Rules/`、`Tags/`、`Dashboard/`：單元＋SQLite；`Components/`：bUnit | 每個改動都要補 |
 | `tests/.../Data/SqliteTestDatabase.cs`、`FixedTimeProvider.cs`、`TestTransactions.cs`、`Components/ComponentTestContext.cs` | 測試用 DB、固定「今天」、測試交易（只指定在意的欄位）、bUnit 共用環境 | 新欄位加預設值 |
 | `tests/.../TestData/sample-export*.csv` | 新舊兩版匯出格式範例（虛構） | 新格式加一份 |
@@ -106,6 +106,7 @@ dotnet build                     # 只改 .razor/.css 時快速確認，約 3 �
 - 使用者本機路徑含 `#`（`E:\Code\C#\...`）。
 - 雲端容器：`dotnet` 用 apt 的 `dotnet-sdk-10.0` 安裝（`dot.net` 下載被擋，SessionStart hook 會自動裝），NuGet 可連。
 - 停測試伺服器用 `fuser -k 5199/tcp`；**`pkill -f`／`pgrep -f` 會連自己的 shell 一起砍**。
+- CSS 註解裡不能出現 `*/`（例如路徑 `Components/**/`），會提早結束註解、整份樣式失效。
 - Playwright 對同一個檔案重複 `setInputFiles` 不會觸發 change，重複匯入要開新頁面。
 - **套件版本鎖定確切版本，不用萬用字元。**
 

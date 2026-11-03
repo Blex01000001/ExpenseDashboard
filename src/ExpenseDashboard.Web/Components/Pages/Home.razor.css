@@ -1,0 +1,56 @@
+/* 儀表板：年度卡與月卡片格線。.month-grid 內的 .card 是 MonthCard 子元件，要用 ::deep。 */
+
+.year-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.hero-value {
+    font-size: 2.5rem;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.stat-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 2rem;
+    margin: 0.5rem 0 0;
+}
+
+    .stat-list div {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stat-list dt {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+    }
+
+    .stat-list dd {
+        margin: 0;
+        color: var(--text-primary);
+    }
+
+    .stat-list.compact {
+        gap: 0.25rem 1.5rem;
+        font-size: 0.875rem;
+    }
+
+.comparison-note {
+    margin-left: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.month-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+    .month-grid ::deep .card {
+        margin-bottom: 0;
+    }
