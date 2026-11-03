@@ -43,17 +43,6 @@ public class TagServiceTests
         return database;
     }
 
-    private static Transaction New(DateOnly date, decimal amount, string? tags, string currency = "TWD") => new()
-    {
-        ExternalId = Guid.NewGuid(),
-        Date = date,
-        Category = "午餐",
-        Amount = amount,
-        Currency = currency,
-        Member = "自己",
-        Account = "現金",
-        Tags = tags,
-        Type = TransactionType.Expense,
-        UpdatedAt = new DateTime(2025, 1, 4, 12, 0, 0),
-    };
+    private static Transaction New(DateOnly date, decimal amount, string? tags, string currency = "TWD") =>
+        TestTransactions.Create(amount, date, majorCategory: null, tags: tags, currency: currency);
 }

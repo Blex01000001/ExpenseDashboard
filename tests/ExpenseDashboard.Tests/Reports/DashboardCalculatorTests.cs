@@ -381,27 +381,9 @@ public class DashboardCalculatorTests
     }
 
     private static Transaction Expense(
-        decimal amount, DateOnly? date = null, string category = "午餐", string? majorCategory = "Diet", string? note = null)
-    {
-        var transaction = New(TransactionType.Expense, amount, date, category, majorCategory);
-        transaction.Note = note;
-        return transaction;
-    }
+        decimal amount, DateOnly? date = null, string category = "午餐", string? majorCategory = "Diet", string? note = null) =>
+        TestTransactions.Create(amount, date, category, majorCategory, note);
 
     private static Transaction Income(decimal amount, DateOnly? date = null) =>
-        New(TransactionType.Income, amount, date, "薪水", "Income");
-
-    private static Transaction New(TransactionType type, decimal amount, DateOnly? date, string category, string? majorCategory) => new()
-    {
-        ExternalId = Guid.NewGuid(),
-        Date = date ?? new DateOnly(2025, 1, 4),
-        Category = category,
-        MajorCategory = majorCategory,
-        Amount = amount,
-        Currency = "TWD",
-        Member = "自己",
-        Account = "現金",
-        Type = type,
-        UpdatedAt = new DateTime(2025, 1, 4, 12, 0, 0),
-    };
+        TestTransactions.Create(amount, date, "薪水", "Income", type: TransactionType.Income);
 }

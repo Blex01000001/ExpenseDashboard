@@ -62,17 +62,7 @@ public class ExpenseDbContextTests
         Assert.Equal(55.5m, await db.Transactions.SumAsync(t => t.Amount));
     }
 
-    private static Transaction NewTransaction(Guid? externalId = null, decimal amount = 100m) => new()
-    {
-        ExternalId = externalId ?? Guid.NewGuid(),
-        Date = new DateOnly(2025, 1, 19),
-        Category = "晚餐",
-        MajorCategory = "Diet",
-        Amount = amount,
-        Currency = "TWD",
-        Member = "自己",
-        Account = "現金",
-        Type = TransactionType.Expense,
-        UpdatedAt = new DateTime(2025, 1, 19, 19, 55, 9),
-    };
+    private static Transaction NewTransaction(Guid? externalId = null, decimal amount = 100m) =>
+        TestTransactions.Create(amount, new DateOnly(2025, 1, 19), "晚餐", externalId: externalId,
+            updatedAt: new DateTime(2025, 1, 19, 19, 55, 9));
 }

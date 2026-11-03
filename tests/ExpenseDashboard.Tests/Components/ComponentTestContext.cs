@@ -45,21 +45,8 @@ public abstract class ComponentTestContext : BunitContext
 
     protected static Transaction Expense(
         DateOnly date, decimal amount, string category = "午餐", string? majorCategory = "Diet",
-        string? note = null, string? tags = null) => new()
-    {
-        ExternalId = Guid.NewGuid(),
-        Date = date,
-        Category = category,
-        MajorCategory = majorCategory,
-        Amount = amount,
-        Currency = "TWD",
-        Member = "自己",
-        Account = "現金",
-        Note = note,
-        Tags = tags,
-        Type = TransactionType.Expense,
-        UpdatedAt = date.ToDateTime(new TimeOnly(12, 0)),
-    };
+        string? note = null, string? tags = null) =>
+        TestTransactions.Create(amount, date, category, majorCategory, note, tags, updatedAt: date.ToDateTime(new TimeOnly(12, 0)));
 
     protected override void Dispose(bool disposing)
     {

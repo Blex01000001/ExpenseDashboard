@@ -132,17 +132,6 @@ public class KeywordRuleServiceTests
     }
 
     private static Transaction Expense(
-        decimal amount, string? note, TransactionType type = TransactionType.Expense, DateOnly? date = null) => new()
-    {
-        ExternalId = Guid.NewGuid(),
-        Date = date ?? new DateOnly(2025, 1, 4),
-        Category = "ゲーム",
-        Amount = amount,
-        Currency = "TWD",
-        Member = "自己",
-        Account = "現金",
-        Note = note,
-        Type = type,
-        UpdatedAt = new DateTime(2025, 1, 4, 12, 0, 0),
-    };
+        decimal amount, string? note, TransactionType type = TransactionType.Expense, DateOnly? date = null) =>
+        TestTransactions.Create(amount, date, category: "ゲーム", majorCategory: null, note: note, type: type);
 }

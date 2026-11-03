@@ -23,7 +23,7 @@
 | `Components/Layout/MainLayout.razor`(+`.css`) | 左上懸浮導覽、錯誤提示列、`main` 讓位 | 新頁面要加導覽按鈕 |
 | `src/ExpenseDashboard.Web/wwwroot/app.css` | 色彩 token（`:root`）與所有頁面樣式 | — |
 | `tests/ExpenseDashboard.Tests/` | `Import/`、`Reports/`、`Rules/`、`Tags/`、`Dashboard/`：單元＋SQLite；`Components/`：bUnit | 每個改動都要補 |
-| `tests/.../Data/SqliteTestDatabase.cs`、`FixedTimeProvider.cs`、`Components/ComponentTestContext.cs` | 測試用 DB、固定「今天」、bUnit 共用環境 | — |
+| `tests/.../Data/SqliteTestDatabase.cs`、`FixedTimeProvider.cs`、`TestTransactions.cs`、`Components/ComponentTestContext.cs` | 測試用 DB、固定「今天」、測試交易（只指定在意的欄位）、bUnit 共用環境 | 新欄位加預設值 |
 | `tests/.../TestData/sample-export*.csv` | 新舊兩版匯出格式範例（虛構） | 新格式加一份 |
 | `scripts/check-ui.cjs`、`scripts/demo-data.py` | 截圖檢查、虛構資料產生器 | 新頁面加進 `pages` |
 | `.claude/hooks/session-start.sh` | 雲端開機裝 .NET 10 SDK＋restore | — |

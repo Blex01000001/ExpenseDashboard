@@ -81,17 +81,6 @@ public class TagCalculatorTests
 
     private static Transaction Income(decimal amount, DateOnly date, string? tags) => New(TransactionType.Income, amount, date, tags);
 
-    private static Transaction New(TransactionType type, decimal amount, DateOnly date, string? tags) => new()
-    {
-        ExternalId = Guid.NewGuid(),
-        Date = date,
-        Category = "午餐",
-        Amount = amount,
-        Currency = "TWD",
-        Member = "自己",
-        Account = "現金",
-        Tags = tags,
-        Type = type,
-        UpdatedAt = new DateTime(2025, 1, 4, 12, 0, 0),
-    };
+    private static Transaction New(TransactionType type, decimal amount, DateOnly date, string? tags) =>
+        TestTransactions.Create(amount, date, majorCategory: null, tags: tags, type: type);
 }

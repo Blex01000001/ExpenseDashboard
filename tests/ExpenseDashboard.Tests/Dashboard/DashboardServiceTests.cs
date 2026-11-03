@@ -181,18 +181,6 @@ public class DashboardServiceTests
         string category = "午餐",
         string? majorCategory = "Diet",
         TransactionType type = TransactionType.Expense,
-        string? note = null) => new()
-    {
-        ExternalId = Guid.NewGuid(),
-        Date = date,
-        Category = category,
-        MajorCategory = majorCategory,
-        Amount = amount,
-        Currency = currency,
-        Member = "自己",
-        Account = "現金",
-        Note = note,
-        Type = type,
-        UpdatedAt = new DateTime(2025, 1, 4, 12, 0, 0),
-    };
+        string? note = null) =>
+        TestTransactions.Create(amount, date, category, majorCategory, note, currency: currency, type: type);
 }

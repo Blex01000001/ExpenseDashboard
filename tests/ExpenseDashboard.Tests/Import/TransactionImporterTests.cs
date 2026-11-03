@@ -263,17 +263,6 @@ public class TransactionImporterTests
         NewTransaction(t.ExternalId, t.Amount, t.UpdatedAt, t.Date);
 
     private static Transaction NewTransaction(
-        Guid? externalId = null, decimal amount = 100m, DateTime? updatedAt = null, DateOnly? date = null) => new()
-    {
-        ExternalId = externalId ?? Guid.NewGuid(),
-        Date = date ?? new DateOnly(2025, 1, 4),
-        Category = "午餐",
-        MajorCategory = "Diet",
-        Amount = amount,
-        Currency = "TWD",
-        Member = "自己",
-        Account = "現金",
-        Type = TransactionType.Expense,
-        UpdatedAt = updatedAt ?? BaseTime,
-    };
+        Guid? externalId = null, decimal amount = 100m, DateTime? updatedAt = null, DateOnly? date = null) =>
+        TestTransactions.Create(amount, date, externalId: externalId, updatedAt: updatedAt ?? BaseTime);
 }
