@@ -25,6 +25,8 @@
 | `tests/ExpenseDashboard.Tests/` | `Import/`、`Reports/`、`Rules/`、`Tags/`、`Dashboard/`：單元＋SQLite；`Components/`：bUnit | 每個改動都要補 |
 | `tests/.../Data/SqliteTestDatabase.cs`、`FixedTimeProvider.cs`、`Components/ComponentTestContext.cs` | 測試用 DB、固定「今天」、bUnit 共用環境 | — |
 | `tests/.../TestData/sample-export*.csv` | 新舊兩版匯出格式範例（虛構） | 新格式加一份 |
+| `scripts/check-ui.cjs`、`scripts/demo-data.py` | 截圖檢查、虛構資料產生器 | 新頁面加進 `pages` |
+| `.claude/hooks/session-start.sh` | 雲端開機裝 .NET 10 SDK＋restore | — |
 
 （`Components/` = `src/ExpenseDashboard.Web/Components/`）
 
@@ -42,9 +44,11 @@ dotnet build                     # 只改 .razor/.css 時快速確認，約 3 �
   dotnet tool restore   # 第一次用 dotnet-ef 前，約 5 秒
   dotnet ef migrations add <Name> -p src/ExpenseDashboard.Web -o Data/Migrations
   ```
-- 改畫面：除了 bUnit，還要實際啟動截圖看（桌面 1280、手機 375，不可出現水平捲動）；ApexCharts 在 bUnit 中是 stub，圖形只能靠截圖驗證。
+- 改畫面：除了 bUnit，還要跑截圖檢查（桌面 1280、手機 375，不可出現水平捲動）；ApexCharts 在 bUnit 中是 stub，圖形只能靠截圖驗證。
   ```bash
-  dotnet run --project src/ExpenseDashboard.Web --urls http://localhost:5199
+  node scripts/check-ui.cjs              # 暫存 DB + 虛構資料，4 頁 × 2 尺寸截圖到 artifacts/ui/，檢查水平捲動與瀏覽器錯誤，約 30 秒
+  node scripts/check-ui.cjs --readme     # 另外更新 README 截圖 docs/images/dashboard.png
+  python3 scripts/demo-data.py out.csv   # 只產生虛構匯出檔（固定種子）
   ```
 
 ## 常見任務
@@ -100,7 +104,7 @@ dotnet build                     # 只改 .razor/.css 時快速確認，約 3 �
 
 - 需要 .NET 10 SDK。使用者用 **Visual Studio 2026**（VS 2022 不支援 .NET 10）；要開 `ExpenseDashboard.slnx`（不是資料夾檢視），用 `https`／`http` 啟動設定檔。直接執行 `bin/` 的 exe 會是 Production、靜態資源載不到、畫面沒有互動。
 - 使用者本機路徑含 `#`（`E:\Code\C#\...`）。
-- 雲端容器：`dotnet` 用 apt 的 `dotnet-sdk-10.0` 安裝（`dot.net` 下載被擋），NuGet 可連。
+- 雲端容器：`dotnet` 用 apt 的 `dotnet-sdk-10.0` 安裝（`dot.net` 下載被擋，SessionStart hook 會自動裝），NuGet 可連。
 - 停測試伺服器用 `fuser -k 5199/tcp`；**`pkill -f`／`pgrep -f` 會連自己的 shell 一起砍**。
 - Playwright 對同一個檔案重複 `setInputFiles` 不會觸發 change，重複匯入要開新頁面。
 - **套件版本鎖定確切版本，不用萬用字元。**

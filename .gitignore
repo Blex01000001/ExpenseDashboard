@@ -432,3 +432,6 @@ FodyWeavers.xsd
 *.db
 *.db-shm
 *.db-wal
+
+# UI 驗證截圖（scripts/check-ui.cjs）
+artifacts/
