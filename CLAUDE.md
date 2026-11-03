@@ -26,7 +26,8 @@
 | `tests/.../Data/SqliteTestDatabase.cs`、`FixedTimeProvider.cs`、`TestTransactions.cs`、`Components/ComponentTestContext.cs` | 測試用 DB、固定「今天」、測試交易（只指定在意的欄位）、bUnit 共用環境 | 新欄位加預設值 |
 | `tests/.../TestData/sample-export*.csv` | 新舊兩版匯出格式範例（虛構） | 新格式加一份 |
 | `scripts/check-ui.cjs`、`scripts/demo-data.py` | 截圖檢查、虛構資料產生器 | 新頁面加進 `pages` |
-| `.claude/hooks/session-start.sh` | 雲端開機裝 .NET 10 SDK＋restore | — |
+| `.claude/hooks/session-start.sh`、`.claude/settings.json` | 雲端開機裝 .NET 10 SDK＋restore；常用指令免詢問白名單 | 新常用指令加白名單 |
+| `.github/workflows/ci.yml` | 每次 push／PR 跑 `dotnet test`（Release） | — |
 
 （`Components/` = `src/ExpenseDashboard.Web/Components/`）
 
