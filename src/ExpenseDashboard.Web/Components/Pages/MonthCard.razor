@@ -45,14 +45,6 @@
 </article>
 
 @code {
-    // dataviz 暗色分類色，依固定順序配給年度前 5 名大類別；「其他」用 muted 灰。
-    private static readonly string[] SliceColors = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181"];
-    private const string OtherColor = "#898781";
-    private const string SurfaceColor = "#1a1a19";
-    private const string MutedInk = "#898781";
-    private const string AmountFormatter = "function (value) { return Number(value).toLocaleString('zh-TW', { maximumFractionDigits: 0 }); }";
-    private const string TotalFormatter = "function (w) { return w.globals.seriesTotals.reduce(function (a, b) { return a + b; }, 0).toLocaleString('zh-TW', { maximumFractionDigits: 0 }); }";
-
     [Parameter, EditorRequired] public MonthAnalysis Month { get; set; } = default!;
     [Parameter, EditorRequired] public string Currency { get; set; } = string.Empty;
     /// <summary>年度前幾名的大類別（依序），決定每個大類別在所有月卡片上的固定顏色。</summary>
@@ -68,25 +60,19 @@
     private string ColorFor(string name)
     {
         var index = FeaturedMajorCategories.ToList().IndexOf(name);
-        return index >= 0 && index < SliceColors.Length ? SliceColors[index] : OtherColor;
+        return index >= 0 && index < ChartTheme.SliceColors.Count ? ChartTheme.SliceColors[index] : ChartTheme.Other;
     }
 
     // 每張卡片各自一份 options（ApexChart 會把 chart id 寫進 options，不能共用）。
     private ApexChartOptions<CategoryTotal> CreateOptions() => new()
     {
-        Chart = new Chart
-        {
-            Toolbar = new Toolbar { Show = false },
-            FontFamily = "inherit",
-            Background = "transparent",
-            ForeColor = MutedInk,
-        },
-        Theme = new Theme { Mode = Mode.Dark },
+        Chart = ChartTheme.DarkChart(),
+        Theme = ChartTheme.DarkTheme(),
         Colors = Month.MajorCategories.Select(c => ColorFor(c.Name)).ToList(),
         Labels = Month.MajorCategories.Select(c => c.Name).ToList(),
         DataLabels = new DataLabels { Enabled = false },
         // 扇形之間留 2px 表面色間隙。
-        Stroke = new Stroke { Show = true, Width = 2, Colors = [SurfaceColor] },
+        Stroke = new Stroke { Show = true, Width = 2, Colors = [ChartTheme.Surface] },
         Legend = new Legend { Show = true, Position = LegendPosition.Bottom, HorizontalAlign = Align.Center },
         PlotOptions = new PlotOptions
         {
@@ -98,11 +84,11 @@
                     Labels = new DonutLabels
                     {
                         Show = true,
-                        Total = new DonutLabelTotal { Show = true, Label = $"總額 {Currency}", Formatter = TotalFormatter },
+                        Total = new DonutLabelTotal { Show = true, Label = $"總額 {Currency}", Formatter = ChartTheme.DonutTotalFormatter },
                     },
                 },
             },
         },
-        Tooltip = new Tooltip { Theme = Mode.Dark, Y = new TooltipY { Formatter = AmountFormatter } },
+        Tooltip = new Tooltip { Theme = Mode.Dark, Y = new TooltipY { Formatter = ChartTheme.WholeAmountFormatter } },
     };
 }

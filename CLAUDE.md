@@ -18,7 +18,7 @@
 | `src/ExpenseDashboard.Web/Data/ExpenseDbContext.cs`、`Data/Migrations/` | EF 模型與 migration | 改實體後加 migration |
 | `src/ExpenseDashboard.Web/Program.cs` | DI 註冊、啟動時 `Database.Migrate()` | 新服務要在這註冊 |
 | `Components/Pages/Home.razor` | 儀表板版面 | 版面調整 |
-| `Components/Pages/MonthlyTrendCard.razor`、`MonthCard.razor`、`ChangeBadge.razor` | 每月花費圖、月卡片、▲▼ 增減 | 圖表 |
+| `Components/Pages/MonthlyTrendCard.razor`、`MonthCard.razor`、`ChangeBadge.razor`；`Components/ChartTheme.cs` | 每月花費圖、月卡片、▲▼ 增減；圖表色票與格式化 | 圖表 |
 | `Components/Pages/Import.razor`、`KeywordRules.razor`、`Tags.razor` | 匯入頁、`/keywords`、`/tags` | — |
 | `Components/Layout/MainLayout.razor`(+`.css`) | 左上懸浮導覽、錯誤提示列、`main` 讓位 | 新頁面要加導覽按鈕 |
 | `src/ExpenseDashboard.Web/wwwroot/app.css` | 色彩 token（`:root`）與所有頁面樣式 | — |
@@ -79,7 +79,7 @@ dotnet build                     # 只改 .razor/.css 時快速確認，約 3 �
 
 ## 設計規範
 
-- **只有暗色主題**；顏色一律用 `app.css` `:root` 的 token。圖表色寫在各元件常數，已用 dataviz 驗證工具驗過對 `#1a1a19` 的對比與色盲區分，**換色前要重新驗證**。
+- **只有暗色主題**；顏色一律用 `app.css` `:root` 的 token。圖表色與 JS 格式化字串集中在 `Components/ChartTheme.cs`，已用 dataviz 驗證工具驗過對 `#1a1a19` 的對比與色盲區分，**換色前要重新驗證**。
 - 文字不用系列色上色；例外：增減 ▲ 紅（`--change-up`）▼ 綠（`--change-down`），只上色三角形與百分比，且一定有符號。
 - 破壞性按鈕用 `.btn-danger`（紅底白字）。錯誤提示（錯誤列、重連視窗、錯誤頁、404）一律中文暗色。
 - 響應式斷點 720px：導覽只剩圖示、表格改成卡片式（用 `>` 子代選擇器，避免套到巢狀表格）。
