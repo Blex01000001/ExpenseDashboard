@@ -19,7 +19,7 @@
 | `src/ExpenseDashboard.Web/Program.cs` | DI 註冊、啟動時 `Database.Migrate()` | 新服務要在這註冊 |
 | `Components/Pages/Home.razor` | 儀表板版面 | 版面調整 |
 | `Components/Pages/MonthlyTrendCard.razor`、`MonthCard.razor`、`ChangeBadge.razor`；`Components/ChartTheme.cs` | 每月花費圖、月卡片、▲▼ 增減；圖表色票與格式化 | 圖表 |
-| `Components/Pages/Import.razor`、`KeywordRules.razor`、`Tags.razor` | 匯入頁、`/keywords`、`/tags` | — |
+| `Components/Pages/Import.razor`、`KeywordRules.razor`、`Tags.razor`；`YearCurrencyFilter.razor` | 匯入頁、`/keywords`、`/tags`；標題列年度／貨幣選單（儀表板與標籤頁共用） | — |
 | `Components/Layout/MainLayout.razor`(+`.css`) | 左上懸浮導覽、錯誤提示列、`main` 讓位 | 新頁面要加導覽按鈕 |
 | `src/ExpenseDashboard.Web/wwwroot/app.css`；`Components/**/X.razor.css` | 全站：token（`:root`）、基本元素、卡片、按鈕、三頁共用的規則／明細表格；元件專屬樣式放各自的 scoped CSS | 樣式子元件要用 `::deep` |
 | `tests/ExpenseDashboard.Tests/` | `Import/`、`Reports/`、`Rules/`、`Tags/`、`Dashboard/`：單元＋SQLite；`Components/`：bUnit | 每個改動都要補 |

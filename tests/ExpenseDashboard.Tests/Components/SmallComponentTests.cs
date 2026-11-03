@@ -2,6 +2,7 @@ using Bunit;
 using ExpenseDashboard.Domain.Reports;
 using ExpenseDashboard.Web.Components.Layout;
 using ExpenseDashboard.Web.Components.Pages;
+using ExpenseDashboard.Web.Dashboard;
 
 namespace ExpenseDashboard.Tests.Components;
 
@@ -66,5 +67,40 @@ public class SmallComponentTests : ComponentTestContext
             ["儀表板", "匯入 CSV", "備註關鍵字", "標籤彙總"],
             cut.FindAll(".fab-label").Select(e => e.TextContent));
         Assert.Contains("內容", cut.Find("main").TextContent);
+    }
+
+    [Fact]
+    public void YearCurrencyFilter_reports_the_whole_new_filter()
+    {
+        DashboardFilter? changed = null;
+        var cut = Render<YearCurrencyFilter>(p => p
+            .Add(c => c.Options, new DashboardOptions([2026, 2025], ["TWD", "JPY"]))
+            .Add(c => c.Filter, new DashboardFilter(2026, "TWD"))
+            .Add(c => c.FilterChanged, f => changed = f));
+
+        cut.Find("select[aria-label=年度]").Change("2025");
+        Assert.Equal(new DashboardFilter(2025, "TWD"), changed);
+
+        cut.Find("select[aria-label=貨幣]").Change("JPY");
+        Assert.Equal(new DashboardFilter(2026, "JPY"), changed);
+    }
+
+    [Fact]
+    public void YearCurrencyFilter_hides_currency_when_there_is_only_one()
+    {
+        var cut = Render<YearCurrencyFilter>(p => p
+            .Add(c => c.Options, new DashboardOptions([2026], ["TWD"]))
+            .Add(c => c.Filter, new DashboardFilter(2026, "TWD")));
+
+        Assert.Single(cut.FindAll("select"));
+    }
+
+    [Theory]
+    [InlineData(new[] { "JPY", "TWD" }, "TWD")]
+    [InlineData(new[] { "JPY", "USD" }, "JPY")]
+    public void DefaultFilter_prefers_latest_year_and_TWD(string[] currencies, string expected)
+    {
+        Assert.Equal(new DashboardFilter(2026, expected), new DashboardOptions([2026, 2025], currencies).DefaultFilter());
+        Assert.Null(new DashboardOptions([], []).DefaultFilter());
     }
 }

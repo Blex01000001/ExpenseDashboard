@@ -14,23 +14,9 @@
 
 <div class="page-header">
     <h1>記帳儀表板</h1>
-    @if (options is { Years.Count: > 0 })
+    @if (filter is not null)
     {
-        <select value="@year" @onchange="OnYearChanged" aria-label="年度">
-            @foreach (var y in options.Years)
-            {
-                <option value="@y">@y 年</option>
-            }
-        </select>
-        @if (options.Currencies.Count > 1)
-        {
-            <select value="@currency" @onchange="OnCurrencyChanged" aria-label="貨幣">
-                @foreach (var c in options.Currencies)
-                {
-                    <option value="@c">@c</option>
-                }
-            </select>
-        }
+        <YearCurrencyFilter Options="options!" Filter="filter" FilterChanged="OnFilterChanged" />
     }
 </div>
 
@@ -103,8 +89,9 @@ else if (data is not null)
 @code {
     private DashboardOptions? options;
     private DashboardData? data;
-    private int year;
-    private string currency = DashboardService.DefaultCurrency;
+    private DashboardFilter? filter;
+    private int year => filter!.Year;
+    private string currency => filter!.Currency;
 
     private string FilterKey => $"{year}-{currency}";
 
@@ -116,30 +103,17 @@ else if (data is not null)
             return;
         }
 
-        year = options.Years[0];
-        if (!options.Currencies.Contains(currency))
-        {
-            currency = options.Currencies[0];
-        }
+        filter = options.DefaultFilter();
         await LoadAsync();
     }
 
-    private async Task OnYearChanged(ChangeEventArgs e)
+    private async Task OnFilterChanged(DashboardFilter value)
     {
-        if (int.TryParse(e.Value?.ToString(), out var y))
-        {
-            year = y;
-            await LoadAsync();
-        }
-    }
-
-    private async Task OnCurrencyChanged(ChangeEventArgs e)
-    {
-        currency = e.Value?.ToString() ?? DashboardService.DefaultCurrency;
+        filter = value;
         await LoadAsync();
     }
 
-    private async Task LoadAsync() => data = await Dashboard.LoadAsync(new DashboardFilter(year, currency));
+    private async Task LoadAsync() => data = await Dashboard.LoadAsync(filter!);
 
     private bool IsCurrentMonth(MonthAnalysis month)
     {

@@ -7,7 +7,18 @@ namespace ExpenseDashboard.Web.Dashboard;
 
 public sealed record DashboardFilter(int Year, string Currency);
 
-public sealed record DashboardOptions(IReadOnlyList<int> Years, IReadOnlyList<string> Currencies);
+public sealed record DashboardOptions(IReadOnlyList<int> Years, IReadOnlyList<string> Currencies)
+{
+    /// <summary>預設篩選：最新一年；有 TWD 就用 TWD，否則用筆數最多的貨幣。沒有任何支出時為 null。</summary>
+    public DashboardFilter? DefaultFilter() =>
+        Years.Count == 0
+            ? null
+            : new DashboardFilter(
+                Years[0],
+                Currencies.Contains(DashboardService.DefaultCurrency) || Currencies.Count == 0
+                    ? DashboardService.DefaultCurrency
+                    : Currencies[0]);
+}
 
 /// <param name="FeaturedMajorCategories">圓餅圖固定配色的大類別（年度前幾名，依序），每張月卡片共用。</param>
 public sealed record DashboardData(

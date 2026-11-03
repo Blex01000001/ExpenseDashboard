@@ -1,0 +1,33 @@
+@using ExpenseDashboard.Web.Dashboard
+@*
+    標題列的年度選單＋貨幣選單（只在資料有多種貨幣時出現）。儀表板與標籤彙總頁共用。
+    預設值用 DashboardOptions.DefaultFilter()；改變時回傳整個新的 DashboardFilter。
+*@
+
+<select value="@Filter.Year" @onchange="OnYearChanged" aria-label="年度">
+    @foreach (var y in Options.Years)
+    {
+        <option value="@y">@y 年</option>
+    }
+</select>
+@if (Options.Currencies.Count > 1)
+{
+    <select value="@Filter.Currency" @onchange="OnCurrencyChanged" aria-label="貨幣">
+        @foreach (var c in Options.Currencies)
+        {
+            <option value="@c">@c</option>
+        }
+    </select>
+}
+
+@code {
+    [Parameter, EditorRequired] public DashboardOptions Options { get; set; } = default!;
+    [Parameter, EditorRequired] public DashboardFilter Filter { get; set; } = default!;
+    [Parameter] public EventCallback<DashboardFilter> FilterChanged { get; set; }
+
+    private Task OnYearChanged(ChangeEventArgs e) =>
+        int.TryParse(e.Value?.ToString(), out var year) ? FilterChanged.InvokeAsync(Filter with { Year = year }) : Task.CompletedTask;
+
+    private Task OnCurrencyChanged(ChangeEventArgs e) =>
+        e.Value?.ToString() is { Length: > 0 } currency ? FilterChanged.InvokeAsync(Filter with { Currency = currency }) : Task.CompletedTask;
+}
