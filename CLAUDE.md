@@ -68,7 +68,7 @@ dotnet build                     # 只改 .razor/.css 時快速確認，約 3 �
 - **每張 ApexChart 各自一個 `ApexChartOptions` 實例**：共用時其中一張畫不出來。
 - **圖表格式化用 options 裡的 JS 字串（`Formatter = "function ..."`）**：Interactive Server 不支援 `FormatYAxisLabel` 等 C# 委派。
 - **篩選改變用 `@key` 重建圖表**，不用 `UpdateSeriesAsync`。
-- **百分比用 `$"{ratio * 100:0}%"`，不用 `"P0"`**：伺服器文化會在數字和 % 之間插空白。
+- **畫面上的金額／筆數／百分比／日期一律用 `Components/Display.cs`**（InvariantCulture；百分比不用 `"P0"`，伺服器文化會在數字和 % 之間插空白）。類別不能叫 `Format`：和 `ApexCharts.Format` 撞名。
 - **只看支出**：使用者沒有收入；解析器仍接受「收」，但所有彙總忽略收入。
 - **沒有大類別的類別直接當大類別**（不併成「未分類」）：使用者指定。
 - **甜甜圈只列年度前 5 名大類別、其餘併「其他」**：讓每張月卡片同一大類別同色。

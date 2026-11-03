@@ -50,7 +50,7 @@ else if (!hasTags)
 else if (report is not null)
 {
     <p class="muted">
-        @year 年支出 @report.TotalCount.ToString("N0") 筆，其中 @report.TaggedCount.ToString("N0") 筆有標籤。
+        @year 年支出 @Display.Count(report.TotalCount) 筆，其中 @Display.Count(report.TaggedCount) 筆有標籤。
         一筆有多個標籤時會分別計算，所以各標籤加總可能超過年度總額。點一列展開每月金額與明細。
     </p>
 
@@ -77,9 +77,9 @@ else if (report is not null)
                                     @tag.Name
                                 </button>
                             </td>
-                            <td class="num" data-label="筆數">@tag.Count.ToString("N0")</td>
+                            <td class="num" data-label="筆數">@Display.Count(tag.Count)</td>
                             <td class="num" data-label="金額">@FormatAmount(tag.Total)</td>
-                            <td class="num" data-label="占年度支出">@Percent(tag.Share)</td>
+                            <td class="num" data-label="占年度支出">@Display.Percent(tag.Share, 1)</td>
                         </tr>
                         @if (expanded)
                         {
@@ -90,7 +90,7 @@ else if (report is not null)
                                         {
                                             <div class="tag-month">
                                                 <span class="muted">@(m + 1) 月</span>
-                                                <span>@(tag.Monthly[m] is decimal v ? v.ToString("#,0") : "—")</span>
+                                                <span>@(tag.Monthly[m] is decimal v ? Display.Whole(v) : "—")</span>
                                             </div>
                                         }
                                     </div>
@@ -108,8 +108,8 @@ else if (report is not null)
                                                 @foreach (var e in expenses.Take(DetailLimit))
                                                 {
                                                     <tr>
-                                                        <td>@e.Date.ToString("yyyy/MM/dd")</td>
-                                                        <td class="num">@e.Amount.ToString("#,0.##") @e.Currency</td>
+                                                        <td>@Display.Date(e.Date)</td>
+                                                        <td class="num">@Display.Exact(e.Amount) @e.Currency</td>
                                                         <td>@e.Category</td>
                                                         <td>@e.Note <span class="muted">［@e.Tags］</span></td>
                                                     </tr>
@@ -195,8 +195,5 @@ else if (report is not null)
         expenses = await TagData.GetExpensesAsync(tag, year, currency);
     }
 
-    private string FormatAmount(decimal amount) => $"{amount:#,0} {currency}";
-
-    // 不用 "P0"：伺服器文化設定會在數字和 % 之間插空白。
-    private static string Percent(decimal ratio) => $"{ratio * 100:0.0}%";
+    private string FormatAmount(decimal amount) => Display.Amount(amount, currency);
 }

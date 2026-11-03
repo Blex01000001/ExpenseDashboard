@@ -55,7 +55,7 @@
 
     protected override void OnParametersSet() => options = CreateOptions();
 
-    private string FormatAmount(decimal amount) => $"{amount:#,0} {Currency}";
+    private string FormatAmount(decimal amount) => Display.Amount(amount, Currency);
 
     private string ColorFor(string name)
     {

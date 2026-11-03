@@ -69,7 +69,7 @@ else if (data is not null)
                 </div>
                 <div>
                     <dt>筆數</dt>
-                    <dd>@data.Year.Count.ToString("N0")</dd>
+                    <dd>@Display.Count(data.Year.Count)</dd>
                 </div>
                 @if (data.Year.PeakMonth is { } peak)
                 {
@@ -147,7 +147,7 @@ else if (data is not null)
         return month.Year == now.Year && month.Month == now.Month;
     }
 
-    private string FormatAmount(decimal amount) => $"{amount:#,0} {currency}";
+    private string FormatAmount(decimal amount) => Display.Amount(amount, currency);
 
     private static string MonthRange(IReadOnlyList<MonthAnalysis> months) =>
         months.Count == 1 ? $"{months[0].Month} 月" : $"{months[0].Month}–{months[^1].Month} 月";

@@ -48,8 +48,8 @@ else
                             </button>
                         </td>
                         <td>@string.Join("、", rule.Keywords)</td>
-                        <td class="num" data-label="符合筆數">@summary.MatchCount.ToString("N0")</td>
-                        <td class="num" data-label="符合金額">@summary.MatchTotal.ToString("#,0")</td>
+                        <td class="num" data-label="符合筆數">@Display.Count(summary.MatchCount)</td>
+                        <td class="num" data-label="符合金額">@Display.Whole(summary.MatchTotal)</td>
                         <td class="actions-cell" @onclick:stopPropagation>
                             <div class="row-actions">
                             <button type="button" @onclick="() => EditAsync(rule)" disabled="@isBusy">編輯</button>
@@ -87,8 +87,8 @@ else
                                             @foreach (var m in matches.Take(MatchLimit))
                                             {
                                                 <tr>
-                                                    <td>@m.Date.ToString("yyyy/MM/dd")</td>
-                                                    <td class="num">@m.Amount.ToString("#,0.##") @m.Currency</td>
+                                                    <td>@Display.Date(m.Date)</td>
+                                                    <td class="num">@Display.Exact(m.Amount) @m.Currency</td>
                                                     <td>@m.Category</td>
                                                     <td>@m.Note[..m.MatchIndex]<mark>@m.Note.Substring(m.MatchIndex, m.MatchLength)</mark>@m.Note[(m.MatchIndex + m.MatchLength)..]</td>
                                                 </tr>

@@ -50,7 +50,7 @@
             @foreach (var change in changes.Take(ChangeLimit))
             {
                 <li>
-                    <span class="change-title">@change.Date.ToString("yyyy/MM/dd") @change.Category @change.Amount.ToString("#,0.##") @change.Currency</span>
+                    <span class="change-title">@Display.Date(change.Date) @change.Category @Display.Exact(change.Amount) @change.Currency</span>
                     @if (change.Changes.Count == 0)
                     {
                         <span class="muted">內容沒變，只更新了「上次更新」時間</span>
@@ -90,9 +90,9 @@
                 @foreach (var t in missing.Take(PreviewLimit))
                 {
                     <tr>
-                        <td>@t.Date.ToString("yyyy/MM/dd")</td>
+                        <td>@Display.Date(t.Date)</td>
                         <td>@t.Category</td>
-                        <td class="num" data-label="金額">@t.Amount.ToString("#,0.##") @t.Currency</td>
+                        <td class="num" data-label="金額">@Display.Exact(t.Amount) @t.Currency</td>
                         <td>@t.Note</td>
                     </tr>
                 }
