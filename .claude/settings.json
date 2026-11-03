@@ -1,4 +1,25 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet run --project src/ExpenseDashboard.Web:*)",
+      "Bash(dotnet tool restore)",
+      "Bash(dotnet ef migrations add:*)",
+      "Bash(fuser -k 5199/tcp)",
+      "Bash(node scripts/check-ui.cjs:*)",
+      "Bash(python3 scripts/demo-data.py:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git push origin claude/wizardly-curie-3v1j5b:*)",
+      "Bash(git push -u origin claude/wizardly-curie-3v1j5b:*)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
